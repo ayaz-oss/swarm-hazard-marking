@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from swarmhazard.config import Config
 from swarmhazard.robots import RETURN, SEARCH
@@ -80,3 +81,42 @@ def test_each_robot_marks_a_wreck_only_once():
 def test_oracle_never_loses_robots():
     cfg = Config(controller="C4", lethality=1.0, n_steps=5000)
     assert run(cfg, make_rng("t", 0, 2))["robots_lost"] == 0
+
+
+def test_dead_robots_are_inert():
+    sim = new_sim(controller="C2")
+    sim.swarm.alive[0] = False
+    sim.swarm.alive[1] = False
+    sim.swarm.pos[0] = sim.world.item_pos[0]
+    sim.swarm.state[0] = SEARCH
+    sim.swarm.pos[1] = sim.nest
+    sim.swarm.state[1] = RETURN
+    pos_before = sim.swarm.pos[[0, 1]].copy()
+    state_before = sim.swarm.state[[0, 1]].copy()
+    heading_before = sim.swarm.heading[[0, 1]].copy()
+    item_before = sim.world.item_pos[0].copy()
+    for _ in range(5):
+        sim.step()
+    assert np.array_equal(sim.swarm.pos[[0, 1]], pos_before)
+    assert np.array_equal(sim.swarm.state[[0, 1]], state_before)
+    assert np.array_equal(sim.swarm.heading[[0, 1]], heading_before)
+    assert np.array_equal(sim.world.item_pos[0], item_before)
+    assert sim.delivered == 0
+
+
+def test_two_observers_deposit_twice():
+    def wreck_sim(observers):
+        sim = new_sim(controller="C2")
+        sim.swarm.alive[2] = False
+        sim.swarm.pos[2] = [3.0, 3.0]
+        for robot, xy in observers:
+            sim.swarm.pos[robot] = xy
+        return sim
+
+    a = wreck_sim([(0, [3.2, 3.0])])
+    b = wreck_sim([(0, [3.2, 3.0]), (1, [3.0, 3.2])])
+    a.step()
+    b.step()
+    assert b.field.grid.max() == pytest.approx(2 * a.field.grid.max(), rel=1e-6)
+    assert b.seen[0, 2]
+    assert b.seen[1, 2]
