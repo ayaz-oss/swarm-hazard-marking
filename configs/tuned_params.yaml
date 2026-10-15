@@ -1,0 +1,6 @@
+# Tuned parameters (spec section 3). Written by scripts/select_params.py.
+# Last update: C2 from tune_c2.csv, code 46003a6.
+# Rule: highest median items delivered; ties -> lowest mean robots lost.
+decay: 0.0002
+deposit_sigma: 0.3
+repel_weight: 0.5
