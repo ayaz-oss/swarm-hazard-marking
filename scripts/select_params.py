@@ -22,6 +22,9 @@ OUT = ROOT / "configs" / "tuned_params.yaml"
 
 def main(csv: str, controller: str, *params: str) -> None:
     df = pd.read_csv(csv)
+    experiments = set(df["experiment"])
+    if not experiments <= {"tune_c2", "tune_c3"}:
+        sys.exit(f"Refusing: {sorted(experiments)} is not a tuning experiment (tune_c2/tune_c3).")
     cols = [f"p_{p}" for p in params]
     table = (df[df["controller"] == controller].groupby(cols)
              .agg(delivered=("delivered", "median"), lost=("robots_lost", "mean"), runs=("seed", "size"))

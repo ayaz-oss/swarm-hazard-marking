@@ -27,6 +27,7 @@ Design: `docs/superpowers/specs/2026-10-14-swarm-hazard-design.md`
     git add configs/tuned_params.yaml && git commit -m "Record tuned C2 parameters"
     .venv/Scripts/python scripts/run_experiment.py configs/experiments/tune_c3.yaml
     .venv/Scripts/python scripts/select_params.py results/tune_c3.csv C3 risk_k
+    git add configs/tuned_params.yaml && git commit -m "Record tuned C3 risk_k"
 
 The analysis plan and hypotheses are in `docs/hypotheses.md`.
 
