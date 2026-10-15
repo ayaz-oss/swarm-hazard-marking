@@ -57,6 +57,9 @@ class Config:
     deposit_sigma: float = 0.3
     decay: float = 0.0005
 
+    # Metrics
+    metric_every: int = 500
+
     def __post_init__(self):
         if self.controller not in KNOWN_CONTROLLERS:
             raise ValueError(f"Unknown controller {self.controller!r}; expected one of {KNOWN_CONTROLLERS}")

@@ -40,3 +40,6 @@ grid_cell: 0.1            # m
 deposit_amount: 1.0       # peak concentration added per robot per newly seen wreck
 deposit_sigma: 0.3        # m, Gaussian footprint
 decay: 0.0005             # fraction lost per step (half-life about 139 s)
+
+# Metrics
+metric_every: 500         # steps between localisation-AUC samples (marking controllers)

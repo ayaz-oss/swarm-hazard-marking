@@ -17,6 +17,7 @@ import numpy as np
 
 from swarmhazard.config import Config
 from swarmhazard.controllers import MARKING, avoidance, blocks_move, hazard_tangent
+from swarmhazard.metrics import field_auc, hazard_mask
 from swarmhazard.pheromone import RepellentField
 from swarmhazard.robots import RETURN, SEARCH, make_swarm, unit
 from swarmhazard.world import hazard_failures, in_hazard, make_world, respawn_item
@@ -33,6 +34,8 @@ class Simulation:
         self.world = make_world(cfg, layout_rng)
         self.swarm = make_swarm(cfg, layout_rng)
         self.field = RepellentField(cfg.arena_size, cfg.grid_cell)
+        self.hazard_mask = hazard_mask(self.world, self.field)
+        self.auc_series: list[float] = []
         n = cfg.n_robots
         self.seen = np.zeros((n, n), dtype=bool)  # seen[i, j]: robot i has already marked wreck j
         self.nest = np.asarray(cfg.nest_center, dtype=float)
@@ -57,6 +60,8 @@ class Simulation:
             self._mark()
             self.field.decay(self.cfg.decay)
         self.t += 1
+        if self.cfg.controller in MARKING and self.t % self.cfg.metric_every == 0:
+            self.auc_series.append(field_auc(self.field.grid, self.hazard_mask))
 
     def _choose_headings(self, searching: np.ndarray, returning: np.ndarray) -> None:
         cfg, sw = self.cfg, self.swarm
@@ -149,6 +154,9 @@ class Simulation:
             "robots_lost": int((~self.swarm.alive).sum()),
             "first_loss_step": self.first_loss_step,
             "steps": self.t,
+            "auc_final": self.auc_series[-1] if self.auc_series else float("nan"),
+            "auc_mean": float(np.mean(self.auc_series)) if self.auc_series else float("nan"),
+            "auc_series": ";".join(f"{a:.4f}" for a in self.auc_series),
         }
 
 

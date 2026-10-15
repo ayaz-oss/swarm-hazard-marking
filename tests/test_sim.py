@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import pytest
 
@@ -172,3 +174,15 @@ def test_robot_that_dies_carrying_an_item_counts_it_as_lost():
     assert not sim.swarm.alive[0]
     assert r["items_lost"] == 1 and r["carrying"] == 0
     assert r["picked_up"] == r["delivered"] + r["items_lost"] + r["carrying"]
+
+
+def test_auc_recorded_only_for_marking_controllers():
+    c0 = run(Config(controller="C0", n_steps=500), make_rng("t", 0, 3))
+    assert math.isnan(c0["auc_final"]) and c0["auc_series"] == ""
+
+    sim = new_sim(controller="C2", lethality=0.0, metric_every=1)
+    sim.swarm.alive[1] = False
+    sim.swarm.pos[1] = [8.81, 6.19]   # a wreck at the hazard centre
+    sim.swarm.pos[0] = [9.01, 6.19]   # an observer beside it
+    sim.step()
+    assert sim.result()["auc_final"] > 0.9
