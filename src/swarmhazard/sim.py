@@ -25,9 +25,13 @@ from swarmhazard.world import hazard_failures, make_world, respawn_item
 class Simulation:
     def __init__(self, cfg: Config, rng: np.random.Generator):
         self.cfg = cfg
-        self.rng = rng
-        self.world = make_world(cfg, rng)
-        self.swarm = make_swarm(cfg, rng)
+        # Separate child streams, so that a behavioural difference in one part
+        # of the simulation (e.g. a robot dying) cannot shift the random
+        # numbers used anywhere else. Controllers then share randomness for
+        # the whole run, not just until their first difference.
+        layout_rng, self.motion_rng, self.respawn_rng, self.hazard_rng = rng.spawn(4)
+        self.world = make_world(cfg, layout_rng)
+        self.swarm = make_swarm(cfg, layout_rng)
         self.field = RepellentField(cfg.arena_size, cfg.grid_cell)
         n = cfg.n_robots
         self.seen = np.zeros((n, n), dtype=bool)  # seen[i, j]: robot i has already marked wreck j
@@ -54,7 +58,8 @@ class Simulation:
 
     def _choose_headings(self, searching: np.ndarray, returning: np.ndarray) -> None:
         cfg, sw = self.cfg, self.swarm
-        sw.heading[searching] += self.rng.normal(0.0, cfg.turn_noise, searching.sum())
+        noise = self.motion_rng.normal(0.0, cfg.turn_noise, len(sw.pos))  # one draw per robot, always
+        sw.heading[searching] += noise[searching]
         if len(self.world.item_pos):
             to_items = self.world.item_pos[None, :, :] - sw.pos[:, None, :]
             dist = np.linalg.norm(to_items, axis=2)
@@ -72,6 +77,7 @@ class Simulation:
 
     def _move(self, alive: np.ndarray) -> None:
         cfg, sw = self.cfg, self.swarm
+        kick = self.motion_rng.normal(0.0, 0.5, len(sw.pos))  # one draw per robot, always
         new = sw.pos + cfg.speed * cfg.dt * unit(sw.heading)
         hit_wall = ((new < 0) | (new > cfg.arena_size)).any(axis=1)
         new = np.clip(new, 0.0, cfg.arena_size)
@@ -79,7 +85,7 @@ class Simulation:
         moves = alive & ~blocked
         sw.pos[moves] = new[moves]
         bounce = alive & (hit_wall | blocked)
-        sw.heading[bounce] += np.pi + self.rng.normal(0.0, 0.5, bounce.sum())
+        sw.heading[bounce] += np.pi + kick[bounce]
 
     def _pick_up(self, searching: np.ndarray) -> None:
         # A loop, not a vectorised op: two robots must not take the same item.
@@ -91,18 +97,19 @@ class Simulation:
             j = int(d.argmin())
             if d[j] < self.cfg.pickup_radius:
                 sw.state[i] = RETURN
-                respawn_item(self.world, j, self.rng)
+                respawn_item(self.world, j, self.respawn_rng)
 
     def _deliver(self, returning: np.ndarray) -> None:
         sw = self.swarm
         at_nest = returning & (np.linalg.norm(sw.pos - self.nest, axis=1) < self.cfg.nest_radius)
         sw.state[at_nest] = SEARCH
-        sw.heading[at_nest] = self.rng.uniform(-np.pi, np.pi, at_nest.sum())
+        fresh = self.motion_rng.uniform(-np.pi, np.pi, len(sw.pos))  # one draw per robot, always
+        sw.heading[at_nest] = fresh[at_nest]
         self.delivered += int(at_nest.sum())
 
     def _fail(self, alive: np.ndarray) -> None:
         sw = self.swarm
-        dies = hazard_failures(self.world, sw.pos, alive, self.cfg.lethality, self.rng)
+        dies = hazard_failures(self.world, sw.pos, alive, self.cfg.lethality, self.hazard_rng)
         if dies.any():
             sw.alive[dies] = False  # a carried item is lost with the robot
             if self.first_loss_step < 0:

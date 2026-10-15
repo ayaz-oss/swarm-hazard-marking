@@ -120,3 +120,15 @@ def test_two_observers_deposit_twice():
     assert b.field.grid.max() == pytest.approx(2 * a.field.grid.max(), rel=1e-6)
     assert b.seen[0, 2]
     assert b.seen[1, 2]
+
+
+def test_one_robot_dying_does_not_change_others_randomness():
+    # Under C0 robots do not interact for the first 200 steps (no item is
+    # reachable yet), so killing robot 0 must leave every other path unchanged.
+    a = new_sim()
+    b = new_sim()
+    b.swarm.alive[0] = False
+    for _ in range(200):
+        a.step()
+        b.step()
+    assert np.array_equal(a.swarm.pos[1:], b.swarm.pos[1:])
