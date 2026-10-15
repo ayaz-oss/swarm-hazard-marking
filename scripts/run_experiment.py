@@ -4,8 +4,8 @@ Usage:
     python scripts/run_experiment.py configs/experiments/gate.yaml
     python scripts/run_experiment.py configs/experiments/gate.yaml --seeds 2 --n-steps 500   # smoke test
 
-Refuses to run on a tree with uncommitted changes (unless a smoke test or
---allow-dirty), so every row's git_commit names the code that produced it.
+Refuses to run on uncommitted changes or an unknown git commit (unless a smoke
+test or --allow-dirty), so every row's git_commit names the code that produced it.
 """
 
 from __future__ import annotations
@@ -41,8 +41,9 @@ def main() -> None:
     spec = load_experiment(args.experiment, ROOT)
     smoke = args.seeds is not None or args.n_steps is not None
     info = provenance(ROOT)  # recorded before running, so edits during the run cannot mislabel rows
-    if info["git_commit"].endswith("-dirty") and not (smoke or args.allow_dirty):
-        sys.exit("Refusing to run: uncommitted changes. Commit first, or pass --allow-dirty.")
+    commit = info["git_commit"]
+    if (commit.endswith("-dirty") or commit == "unknown") and not (smoke or args.allow_dirty):
+        sys.exit(f"Refusing to run: code version is {commit!r}. Commit first, or pass --allow-dirty.")
 
     jobs = build_jobs(spec, seeds=args.seeds, n_steps=args.n_steps)
     start = time.perf_counter()
