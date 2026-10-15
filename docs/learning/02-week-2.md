@@ -27,6 +27,9 @@ We fixed the rule before running: pick the setting with the highest median
 items delivered; break ties by fewer robots lost. Tuning used its own random
 streams, so the main experiments are a fresh test.
 
+delivered = median items delivered, lost = mean robots lost, over 20 seeds; p_
+columns are the tuned parameters; the C2 table shows the best 10 of 36 settings.
+
 C2 result (720 runs: 36 settings x 20 seeds; grid repel_weight 0.5/1/2/4,
 deposit_sigma 0.2/0.3/0.5, decay 0.0002/0.0005/0.002):
 
@@ -79,20 +82,33 @@ repel_weight: 0.5
 risk_k: 0.5
 ```
 
-## Two things to decide before the main experiments
+## Three things to decide before the main experiments
 
 (a) **C2's tuning is weak.** `repel_weight` and `decay` were chosen at the
-smallest values in their grids, and the top 10 settings differ by only 1.5
-items (47.0 down to 45.5), which is within noise. An extended, documented grid
+smallest values in their grids, and the top 10 settings span only 1.5 items of
+median delivered (47.0 down to 45.5), from 20 seeds each; we have not shown
+this spread is larger than seed-to-seed variation. An extended, documented grid
 (smaller `repel_weight` and `decay`) is an option, as long as we write down
-that we did it and why.
+that we did it and why. Any extended grid should use fresh seeds (a new
+experiment name) to avoid tuning on the same random draws twice.
 
-(b) **The runner is slow.** `tune_c2` took 62 minutes because using all 16
-cores is slower than using 4 on this laptop. The main experiments (about
-11,000 runs) would take about 14 hours at the current speed, so we need to
-speed up the code or run overnight. `tune_c2` used 16 workers; `tune_c3` and
-the gate re-check used 4 (the worker count does not affect results, only
-speed).
+(b) **The runner is slow.** `tune_c2` took 62 minutes. A matched benchmark
+(2,000-step C2 runs, same machine) measured throughput of 0.41 runs/s with 1
+worker, 1.12 with 4, 0.81 with 8, 0.71 with 12 and 0.63 with 16. So 4 workers
+was fastest; a likely cause (not confirmed) is that the laptop mixes fast and
+slow cores and throttles when hot. At the benchmarked 4-worker rate (about 1.12
+short runs/s, i.e. about 4.5 s per full 10,000-step run), the roughly 11,000
+main runs would take about 14 hours, so we need to speed up the code or run
+overnight. `tune_c2` used 16 workers; `tune_c3` and the gate re-check used 4
+(the worker count does not affect results, only speed).
+
+(c) **The go/no-go check now narrowly fails.** On items delivered the
+pre-registered check fails narrowly (A12 0.629 vs 0.64; 95% bootstrap CI about
+0.49-0.77), while robots lost shows a large effect (C2 loses fewer robots in
+about 87% of paired comparisons). Whether to proceed, and whether items
+delivered should stay the primary metric, is a decision for you and your
+mentor, and must be made, and written into `docs/hypotheses.md`, before any
+main experiment runs.
 
 ## The gate after the fixes
 
@@ -109,19 +125,22 @@ median C4 >= median C2: True
 GATE: FAIL
 ```
 
+The gate re-check used the default parameters (not the tuned ones), as in week
+1, so the two are comparable.
+
 **The gate FAILED after the fixes.** A12 for C2 vs C0 is 0.629, below the 0.64
 threshold (week 1: 0.673, PASS). Median delivered moved from 44 / 46.5 / 48
 (C0 / C2 / C4) to 41 / 44 / 46; median robots lost stayed 5 / 2 / 0. The
-ordering C0 < C2 < C4 still holds and the robot-loss pattern is unchanged, but
-the effect size A12 dropped (the median gap C2 minus C0 is 3 items now, 2.5 in
-week 1, so the medians alone hide the change), and it is now just under the
-pre-set line. We
-did not change anything to make it pass. Possible explanations: (1) the
-week-1 A12 of 0.673 was partly luck from a shared random stream, and the
-paired streams give a more honest, smaller estimate; (2) the fair oracle and
-the new counters changed what every controller delivers, so C0 itself moved;
-(3) with only 30 seeds per controller, A12 has a wide margin of error, so
-0.629 versus 0.64 is not a clear difference.
+ordering C0 < C2 < C4 still holds and the robot-loss pattern is unchanged. The
+gap in medians (C2 minus C0) rose from 2.5 to 3 items, but A12, which compares
+whole distributions, fell from 0.673 to 0.629, and is now just under the
+pre-set line. We did not change anything to make it pass. Possible
+explanations: (1) the week-1 A12 of 0.673 was partly luck from a shared random
+stream, and the paired streams give a less inflated estimate, if this
+explanation is right; (2) the fair oracle and the new counters changed what
+every controller delivers, so C0 itself moved; (3) with only 30 seeds per
+controller, A12 has a wide margin of error, so 0.629 versus 0.64 is not a clear
+difference.
 
 ## Questions to think about
 
