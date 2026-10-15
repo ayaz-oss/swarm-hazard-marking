@@ -149,4 +149,17 @@ def test_oracle_returner_gets_round_a_hazard_in_its_way():
 def test_every_picked_up_item_is_delivered_lost_or_still_carried():
     r = run(Config(controller="C0", lethality=0.2, n_steps=3000), make_rng("t", 0, 4))
     assert r["picked_up"] > 0
+    assert r["delivered"] > 0
+    assert r["picked_up"] == r["delivered"] + r["items_lost"] + r["carrying"]
+
+
+def test_robot_that_dies_carrying_an_item_counts_it_as_lost():
+    sim = new_sim(lethality=1.0)
+    sim.swarm.state[0] = RETURN
+    sim.picked_up = 1            # robot 0 is carrying one item
+    sim.swarm.pos[0] = [8.81, 6.19]
+    sim.step()
+    r = sim.result()
+    assert not sim.swarm.alive[0]
+    assert r["items_lost"] == 1 and r["carrying"] == 0
     assert r["picked_up"] == r["delivered"] + r["items_lost"] + r["carrying"]
