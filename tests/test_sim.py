@@ -144,3 +144,9 @@ def test_oracle_returner_gets_round_a_hazard_in_its_way():
             break
     assert sim.swarm.alive[0]
     assert sim.swarm.state[0] == SEARCH  # it delivered
+
+
+def test_every_picked_up_item_is_delivered_lost_or_still_carried():
+    r = run(Config(controller="C0", lethality=0.2, n_steps=3000), make_rng("t", 0, 4))
+    assert r["picked_up"] > 0
+    assert r["picked_up"] == r["delivered"] + r["items_lost"] + r["carrying"]

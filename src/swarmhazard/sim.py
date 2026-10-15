@@ -38,6 +38,8 @@ class Simulation:
         self.nest = np.asarray(cfg.nest_center, dtype=float)
         self.t = 0
         self.delivered = 0
+        self.picked_up = 0
+        self.items_lost = 0  # carried by a robot when it failed
         self.first_loss_step = -1
 
     def step(self) -> None:
@@ -105,6 +107,7 @@ class Simulation:
             j = int(d.argmin())
             if d[j] < self.cfg.pickup_radius:
                 sw.state[i] = RETURN
+                self.picked_up += 1
                 respawn_item(self.world, j, self.respawn_rng)
 
     def _deliver(self, returning: np.ndarray) -> None:
@@ -119,6 +122,7 @@ class Simulation:
         sw = self.swarm
         dies = hazard_failures(self.world, sw.pos, alive, self.cfg.lethality, self.hazard_rng)
         if dies.any():
+            self.items_lost += int((dies & (sw.state == RETURN)).sum())
             sw.alive[dies] = False  # a carried item is lost with the robot
             if self.first_loss_step < 0:
                 self.first_loss_step = self.t
@@ -139,6 +143,9 @@ class Simulation:
     def result(self) -> dict:
         return {
             "delivered": self.delivered,
+            "picked_up": self.picked_up,
+            "items_lost": self.items_lost,
+            "carrying": int((self.swarm.alive & (self.swarm.state == RETURN)).sum()),
             "robots_lost": int((~self.swarm.alive).sum()),
             "first_loss_step": self.first_loss_step,
             "steps": self.t,
