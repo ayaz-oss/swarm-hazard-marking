@@ -1,0 +1,42 @@
+# Baseline configuration (spec sections 2 and 4). Units: metres, seconds, radians.
+# Every experiment states only how it differs from this file.
+# Write decimals with a dot (0.0005, not 5e-4): YAML 1.1 reads 5e-4 as text.
+
+# Arena and time
+arena_size: 10.0          # m, side of the square arena
+nest_center: [5.0, 5.0]   # m
+nest_radius: 0.75         # m
+dt: 0.1                   # s per step
+n_steps: 10000            # 10,000 steps = ~17 simulated minutes
+
+# Robots
+n_robots: 20
+speed: 0.1                # m/s
+sense_range: 0.5          # m, range for items, wrecks and repellent
+pickup_radius: 0.05       # m
+turn_noise: 0.3           # rad, std of random heading change per step while searching
+
+# Item patches: [x, y, radius, n_items]
+patches:
+  - [2.5, 2.5, 0.75, 10]
+  - [7.5, 2.5, 0.75, 10]
+  - [2.5, 7.5, 0.75, 10]
+  - [7.5, 7.5, 0.75, 10]
+
+# Hidden hazards: [x, y, radius]. Beside the (7.5, 7.5) patch with a 0.1 m gap,
+# 1.85 m off the straight line from that patch to the nest.
+hazards:
+  - [8.81, 6.19, 1.0]
+lethality: 0.02           # failure probability per step inside a hazard
+
+# Controller
+controller: C0
+wreck_weight: 1.0         # C2: push away from visible wrecks
+repel_weight: 1.0         # C2: push down the repellent gradient
+oracle_weight: 2.0        # C4: push away from known hazard edges
+
+# Repellent field (C2)
+grid_cell: 0.1            # m
+deposit_amount: 1.0       # peak concentration added per robot per newly seen wreck
+deposit_sigma: 0.3        # m, Gaussian footprint
+decay: 0.0005             # fraction lost per step (half-life about 139 s)

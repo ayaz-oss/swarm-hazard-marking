@@ -1,0 +1,6 @@
+# Week-1 go/no-go gate (spec section 8): baseline only, C0 / C2 / C4, 30 seeds.
+name: gate
+base: configs/baseline.yaml
+controllers: [C0, C2, C4]
+seeds: 30
+overrides: {}
