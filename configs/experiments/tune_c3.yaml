@@ -1,0 +1,8 @@
+# Week-2 tuning of C3's risk trade-off, on top of the tuned C2 parameters.
+name: tune_c3
+base: configs/baseline.yaml
+controllers: [C3]
+seeds: 20
+overrides_file: configs/tuned_params.yaml
+grid:
+  risk_k: [0.25, 0.5, 1.0, 2.0, 4.0]
