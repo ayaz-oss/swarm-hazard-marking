@@ -76,9 +76,10 @@ against 5) while the oracle sits on top as it should. So the effect exists and
 we can move on to C1, C3 and tuning. Be careful, though: the margin is thin,
 and C2 delivers only about 2.5 more items than C0 out of roughly 44, so
 anything that weakens the signal could erase it. On the seed we animated, the
-robots die at roughly steps 2,000 and 4,000, but no live robot gets within
+robots die at about steps 2,950 and 3,970, but no live robot gets within
 0.5 m of a wreck until step 6,262, and only one robot–wreck sighting happens in
-the whole run. The repellent signal is sparse because wrecks lie inside the
+the whole run. These figures come from seed 0 of the gate (`make_rng("gate", 0, 0)`),
+controller C2, baseline config, one full 10,000-step run. The repellent signal is sparse because wrecks lie inside the
 hazard, where few robots go to look. That is worth keeping in mind when we tune.
 
 ## Questions to think about
