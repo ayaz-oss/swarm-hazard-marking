@@ -132,3 +132,15 @@ def test_one_robot_dying_does_not_change_others_randomness():
         a.step()
         b.step()
     assert np.array_equal(a.swarm.pos[1:], b.swarm.pos[1:])
+
+
+def test_oracle_returner_gets_round_a_hazard_in_its_way():
+    sim = new_sim(controller="C4", lethality=1.0)
+    sim.swarm.pos[0] = [9.9, 6.19]   # east of the hazard; the nest is due west
+    sim.swarm.state[0] = RETURN
+    for _ in range(2000):
+        sim.step()
+        if sim.swarm.state[0] == SEARCH:
+            break
+    assert sim.swarm.alive[0]
+    assert sim.swarm.state[0] == SEARCH  # it delivered

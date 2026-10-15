@@ -3,7 +3,7 @@
 Each step, in order:
   1. choose headings  - searchers random-walk or head for a visible item;
                         returners head for the nest; the controller bends headings
-  2. move             - walls bounce robots; the oracle refuses hazard cells
+  2. move             - walls bounce robots; the oracle slides along hazard edges
   3. pick up          - a searcher within pickup_radius of an item takes it
   4. deliver          - a returner inside the nest drops its item
   5. hazard failures  - robots inside a hazard fail with probability `lethality`
@@ -16,10 +16,10 @@ from __future__ import annotations
 import numpy as np
 
 from swarmhazard.config import Config
-from swarmhazard.controllers import MARKING, avoidance, blocks_move
+from swarmhazard.controllers import MARKING, avoidance, blocks_move, hazard_tangent
 from swarmhazard.pheromone import RepellentField
 from swarmhazard.robots import RETURN, SEARCH, make_swarm, unit
-from swarmhazard.world import hazard_failures, make_world, respawn_item
+from swarmhazard.world import hazard_failures, in_hazard, make_world, respawn_item
 
 
 class Simulation:
@@ -76,12 +76,20 @@ class Simulation:
         sw.heading[:] = np.where(sw.alive, np.arctan2(steer[:, 1], steer[:, 0]), sw.heading)
 
     def _move(self, alive: np.ndarray) -> None:
-        cfg, sw = self.cfg, self.swarm
+        cfg, sw, world = self.cfg, self.swarm, self.world
         kick = self.motion_rng.normal(0.0, 0.5, len(sw.pos))  # one draw per robot, always
-        new = sw.pos + cfg.speed * cfg.dt * unit(sw.heading)
+        step = cfg.speed * cfg.dt
+        new = sw.pos + step * unit(sw.heading)
         hit_wall = ((new < 0) | (new > cfg.arena_size)).any(axis=1)
         new = np.clip(new, 0.0, cfg.arena_size)
-        blocked = blocks_move(cfg, self.world, new)
+        blocked = blocks_move(cfg, world, new)
+        if blocked.any():
+            # The oracle slides along the hazard edge instead of stepping in.
+            slide = np.clip(sw.pos + step * hazard_tangent(world, sw.pos, unit(sw.heading)),
+                            0.0, cfg.arena_size)
+            slides = blocked & ~in_hazard(world, slide)
+            new[slides] = slide[slides]
+            blocked = blocked & ~slides
         moves = alive & ~blocked
         sw.pos[moves] = new[moves]
         bounce = alive & (hit_wall | blocked)

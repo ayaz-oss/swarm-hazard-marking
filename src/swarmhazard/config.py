@@ -49,7 +49,6 @@ class Config:
     controller: str = "C0"
     wreck_weight: float = 1.0
     repel_weight: float = 1.0
-    oracle_weight: float = 2.0
 
     # Repellent field
     grid_cell: float = 0.1
