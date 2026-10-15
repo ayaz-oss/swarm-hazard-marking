@@ -1,7 +1,7 @@
 import numpy as np
 
 from swarmhazard.config import Config
-from swarmhazard.controllers import avoidance, blocks_move, hazard_tangent, wreck_repulsion
+from swarmhazard.controllers import avoidance, blocks_move, hazard_tangent, items_in_view, wreck_repulsion
 from swarmhazard.pheromone import RepellentField
 from swarmhazard.seeding import make_rng
 from swarmhazard.world import make_world
@@ -50,3 +50,31 @@ def test_hazard_tangent_is_perpendicular_and_follows_direction():
     east_edge = np.array([[8.81 + 1.0, 6.19]])
     t = hazard_tangent(world, east_edge, np.array([[-1.0, 0.1]]))
     assert np.allclose(t, [[0.0, 1.0]])
+
+
+def test_c1_avoids_wrecks_but_ignores_repellent():
+    cfg, world, field = setup("C1")
+    field.deposit((5.0, 5.0), 5.0, 0.3)
+    assert np.all(avoidance(cfg, np.array([[5.3, 5.0]]), np.zeros((0, 2)), field, world) == 0)
+    push = avoidance(cfg, np.array([[1.0, 0.0]]), np.array([[0.8, 0.0]]), field, world)
+    assert push[0, 0] > 0
+
+
+def test_c3_matches_c2_when_no_items_in_view():
+    c2, world, field = setup("C2")
+    c3 = Config(controller="C3", risk_k=2.0)
+    field.deposit((5.0, 5.0), 5.0, 0.3)
+    pos = np.array([[5.3, 5.0]])  # beside the nest: no item within 0.5 m
+    wrecks = np.array([[5.5, 5.0]])
+    assert np.allclose(avoidance(c3, pos, wrecks, field, world), avoidance(c2, pos, wrecks, field, world))
+
+
+def test_c3_pushes_less_when_items_in_view():
+    c2, world, field = setup("C2")
+    c3 = Config(controller="C3", risk_k=2.0)
+    pos = world.item_pos[:1].copy()
+    field.deposit(pos[0] + np.array([-0.3, 0.0]), 5.0, 0.3)
+    n = items_in_view(pos, world.item_pos, c3.sense_range)[0]
+    assert n >= 1
+    expected = avoidance(c2, pos, np.zeros((0, 2)), field, world) / (1 + 2.0 * n)
+    assert np.allclose(avoidance(c3, pos, np.zeros((0, 2)), field, world), expected)

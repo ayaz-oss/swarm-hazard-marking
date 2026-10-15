@@ -14,7 +14,7 @@ from pathlib import Path
 
 import yaml
 
-KNOWN_CONTROLLERS = ("C0", "C2", "C4")
+KNOWN_CONTROLLERS = ("C0", "C1", "C2", "C3", "C4")
 
 
 @dataclass(frozen=True)
@@ -49,6 +49,7 @@ class Config:
     controller: str = "C0"
     wreck_weight: float = 1.0
     repel_weight: float = 1.0
+    risk_k: float = 1.0
 
     # Repellent field
     grid_cell: float = 0.1

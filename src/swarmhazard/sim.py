@@ -7,7 +7,7 @@ Each step, in order:
   3. pick up          - a searcher within pickup_radius of an item takes it
   4. deliver          - a returner inside the nest drops its item
   5. hazard failures  - robots inside a hazard fail with probability `lethality`
-  6. mark (C2 only)   - each robot that sees a wreck for the first time deposits
+  6. mark (MARKING)   - each robot that sees a wreck for the first time deposits
                         repellent on it; then the whole field decays
 """
 

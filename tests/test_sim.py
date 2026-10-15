@@ -78,6 +78,15 @@ def test_each_robot_marks_a_wreck_only_once():
     assert sim.field.grid.max() < first  # only decay, no second deposit
 
 
+@pytest.mark.parametrize("controller, marks",
+                         [("C0", False), ("C1", False), ("C2", True), ("C3", True), ("C4", False)])
+def test_which_controllers_mark_wrecks(controller, marks):
+    sim = new_sim(controller=controller)
+    place_wreck_next_to_robot_0(sim)
+    sim.step()
+    assert (sim.field.grid.max() > 0) == marks
+
+
 def test_oracle_never_loses_robots():
     cfg = Config(controller="C4", lethality=1.0, n_steps=5000)
     assert run(cfg, make_rng("t", 0, 2))["robots_lost"] == 0

@@ -33,6 +33,7 @@ lethality: 0.02           # failure probability per step inside a hazard
 controller: C0
 wreck_weight: 1.0         # C2: push away from visible wrecks
 repel_weight: 1.0         # C2: push down the repellent gradient
+risk_k: 1.0               # C3: repulsion divided by (1 + risk_k * items in view)
 
 # Repellent field (C2)
 grid_cell: 0.1            # m
