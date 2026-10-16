@@ -28,6 +28,7 @@ patches:
 hazards:
   - [8.81, 6.19, 1.0]
 lethality: 0.02           # failure probability per step inside a hazard
+random_fail_rate: 0.0     # per robot per step, anywhere; E2's no-hazard control only
 
 # Controller
 controller: C0

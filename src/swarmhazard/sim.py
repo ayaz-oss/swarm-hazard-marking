@@ -6,7 +6,8 @@ Each step, in order:
   2. move             - walls bounce robots; the oracle slides along hazard edges
   3. pick up          - a searcher within pickup_radius of an item takes it
   4. deliver          - a returner inside the nest drops its item
-  5. hazard failures  - robots inside a hazard fail with probability `lethality`
+  5. failures         - robots inside a hazard fail with probability `lethality`;
+                        every robot also fails with probability `random_fail_rate`
   6. mark (MARKING)   - each robot that sees a wreck for the first time deposits
                         repellent on it; then the whole field decays
 """
@@ -31,7 +32,8 @@ class Simulation:
         # of the simulation (e.g. a robot dying) cannot shift the random
         # numbers used anywhere else. Controllers then share randomness for
         # the whole run, not just until their first difference.
-        layout_rng, self.motion_rng, self.respawn_rng, self.hazard_rng = rng.spawn(4)
+        (layout_rng, self.motion_rng, self.respawn_rng, self.hazard_rng,
+         self.background_rng) = rng.spawn(5)  # first four children are unchanged by the fifth
         self.world = make_world(cfg, layout_rng)
         self.swarm = make_swarm(cfg, layout_rng)
         self.field = RepellentField(cfg.arena_size, cfg.grid_cell)
@@ -141,6 +143,8 @@ class Simulation:
     def _fail(self, alive: np.ndarray) -> None:
         sw = self.swarm
         dies = hazard_failures(self.world, sw.pos, alive, self.cfg.lethality, self.hazard_rng)
+        background = self.background_rng.random(len(sw.pos))  # one draw per robot, always
+        dies |= alive & (background < self.cfg.random_fail_rate)
         if dies.any():
             self.items_lost += int((dies & (sw.state == RETURN)).sum())
             sw.alive[dies] = False  # a carried item is lost with the robot
@@ -172,6 +176,7 @@ class Simulation:
             "auc_final": self.auc_series[-1] if self.auc_series else float("nan"),
             "auc_mean": float(np.mean(self.auc_series)) if self.auc_series else float("nan"),
             "auc_series": ";".join(f"{a:.4f}" for a in self.auc_series),
+            "hazard_area": float(self.hazard_mask.sum() * self.cfg.grid_cell ** 2),
         }
 
 
