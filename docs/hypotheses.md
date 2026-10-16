@@ -6,28 +6,58 @@ main results exist must be reported in the paper as a deviation.
 ## Primary metric
 
 Items delivered to the nest per run (10,000 steps, ~17 simulated minutes).
-Secondary: robots lost; items per robot lost; localisation AUC (marking controllers).
+
+Secondary metrics (reported descriptively, plus the confirmatory tests below):
+- **Robots lost** per run.
+- **Items per robot lost**, per controller and cell: total items delivered divided by
+  total robots lost across all seeds. Reported as "not applicable" when no robot was lost
+  (always the case for C4).
+- **Localisation AUC**: `auc_final`, the AUC of the repellent field at the end of the run
+  (marking controllers C2 and C3 only). The full `auc_series` is used only for
+  figures over time. `auc_mean` is not used for inference, because it includes early
+  samples taken before any robot is lost.
 
 ## Hypotheses (spec section 4)
 
-A12(X, Y) is the probability that a run of X scores higher than a run of Y on the named metric (ties count half).
+A12(X, Y) is the probability that a run of X scores higher than a run of Y on the named
+metric (ties count half), computed with `swarmhazard.stats.a12`.
 
 | ID | Claim | Experiment | Confirmatory test |
 |---|---|---|---|
-| H1 | C2 delivers more items than C0 | E1 | one-sided Mann–Whitney U, alternative C2 > C0 on items delivered; effect size A12(C2, C0) |
-| H2 | C2 loses fewer robots than C1 | E1 | one-sided Mann–Whitney U, alternative C1 > C2 on robots lost; effect size A12(C1, C2) |
+| H1 | C2 delivers more items than C0 | E1 | one-sided Wilcoxon signed-rank on per-seed differences C2 − C0 in items delivered (alternative: greater); effect size A12(C2, C0) |
+| H2 | C2 loses fewer robots than C1 | E1 | one-sided Wilcoxon signed-rank on per-seed differences C1 − C2 in robots lost (alternative: greater); effect size A12(C1, C2) |
 | H3 | In the random-failure control, C2's item cost relative to C0 is small | E2 (no-hazard level) | non-inferiority: supported if the lower bound of the bootstrap 95% CI of A12(C2, C0) on items delivered is above 0.36 |
-| H4 | C3 delivers more items than C2 when the hazard is next to a patch | E1 | one-sided Mann–Whitney U, alternative C3 > C2 on items delivered; effect size A12(C3, C2) |
+| H4 | C3 delivers more items than C2 when the hazard is next to a patch | E1 | one-sided Wilcoxon signed-rank on per-seed differences C3 − C2 in items delivered (alternative: greater); effect size A12(C3, C2) |
 
-H3 operationalises the spec's |A12 − 0.5| < 0.14 as a one-sided bound, because the hypothesis is about a cost: C2 doing better than C0 in the control does not count against it.
+**Deviation from spec section 4 (H3):** the spec states H3 as |A12 − 0.5| < 0.14. It is
+operationalised as a one-sided bound, because the hypothesis is about a cost: C2 doing
+better than C0 in the control does not count against it.
+
+The random-failure mechanism used by E2's no-hazard level is specified in this file
+before E2 runs.
 
 ## Statistics
 
-- 100 seeds per cell.
-- Confirmatory family: H1, H2 and H4, tested on E1 with Holm correction across these three tests at α = 0.05. A hypothesis is supported if its Holm-adjusted p-value is below 0.05. Effect sizes are reported with bootstrap 95% CIs but no A12 threshold is required for support.
+- 100 seeds per cell. Every controller runs every seed of a cell with the same random
+  streams (seeded by experiment, cell and seed only), so results are **paired by seed**.
+- **Paired tests.** Confirmatory tests use the Wilcoxon signed-rank test on per-seed
+  differences: `scipy.stats.wilcoxon(x, y, zero_method="pratt", alternative=..., method="auto")`
+  with scipy 1.15.1, where x and y are aligned by seed.
+- **Confirmatory family:** H1, H2 and H4, tested on E1 with Holm correction across these
+  three tests at α = 0.05. A hypothesis is supported if its Holm-adjusted p-value is below
+  0.05. Effect sizes are reported with bootstrap 95% CIs but no A12 threshold is required
+  for support.
 - H3 is decided only by its CI rule above (not part of the Holm family).
-- Bootstrap: percentile method, 10,000 resamples, 95% two-sided intervals, for medians and A12.
-- Everything else is exploratory and labelled as such: per experiment, Kruskal–Wallis across controllers, then two-sided pairwise Mann–Whitney U against C2 with Holm correction within that experiment.
+- **Bootstrap:** percentile method, 10,000 resamples, 95% two-sided intervals. The
+  resampling unit is the seed: seed indices are drawn with replacement and each drawn
+  seed contributes its paired values for every controller. The bootstrap generator is
+  `numpy.random.default_rng(20261016)`. Applies to medians, median paired differences
+  and A12.
+- Reported for each comparison: medians, the median per-seed difference, A12, and their
+  bootstrap CIs.
+- **Exploratory** (labelled as such): per experiment, Friedman test across controllers
+  (the paired counterpart of Kruskal–Wallis), then two-sided Wilcoxon signed-rank tests
+  against C2 with Holm correction within that experiment.
 - `first_loss_step = -1` means no robot was lost; treat it as missing, never as a number.
 
 ## Tuning protocol (spec section 3)
@@ -39,6 +69,30 @@ H3 operationalises the spec's |A12 − 0.5| < 0.14 as a one-sided bound, because
 - Selection rule: highest median items delivered; ties → lowest mean robots lost.
 - Deviation from spec section 3: the spec lists deposit amount as a tuned parameter. It is fixed at 1 because the repellent push is proportional to deposit_amount × repel_weight, so tuning repel_weight covers it; deposit_sigma (the footprint width), which the spec does not list, is tuned instead. wreck_weight is fixed at 1 because C1 shares it.
 - The chosen values are committed to `configs/tuned_params.yaml` before any main experiment runs.
+- Every main experiment (E1–E7) loads `configs/tuned_params.yaml` through `overrides_file`.
+
+## Decisions recorded before the main experiments (2026-10-16)
+
+1. **Proceed despite the narrow go/no-go failure.** The week-2 re-check of the
+   pre-registered gate (spec section 8; default parameters, 30 seeds) gave
+   A12(C2, C0) = 0.629 on items delivered (bootstrap 95% CI 0.49–0.77), just below the
+   0.64 threshold, while robots lost showed a large effect (A12(C2, C0) = 0.134, CI
+   0.05–0.24). The drop from week 1 (0.673) was checked and is not caused by a code
+   defect: the random-stream change gave a fresh sample of starting layouts, and a shift
+   of 0.044 is within the sampling error of A12 at 30 seeds (about 0.07). The spec's
+   rule (revise the model if the gate fails) is therefore not applied; this is a
+   deviation from spec section 8 and will be reported as one. The primary metric is
+   unchanged.
+2. **Paired analysis.** Confirmatory tests switch from the unpaired Mann–Whitney U to
+   the paired Wilcoxon signed-rank test, because the design pairs controllers by seed
+   (per-seed items delivered for C0 and C2 at the gate correlate with Spearman ρ = 0.77).
+   On the gate data the paired test (as specified above) gives p = 0.0009 against
+   p = 0.043 unpaired.
+3. **Keep the tuned values.** Performance was flat across the tuning grid: the spread of
+   cell means (SD 1.09 items) matches what seed noise alone would give (SE 1.13), and the
+   marginal means show no trend in repel_weight or decay. The pre-registered selection
+   (repel_weight 0.5, deposit_sigma 0.3, decay 0.0002; risk_k 0.5) is kept, and the paper
+   will state that C2's performance was insensitive to these parameters over the grid.
 
 ## Reproducibility claim
 
