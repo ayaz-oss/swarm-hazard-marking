@@ -34,7 +34,8 @@ def main() -> None:
     parser.add_argument("experiment", type=Path)
     parser.add_argument("--seeds", type=int, help="override the number of seeds (smoke tests)")
     parser.add_argument("--n-steps", type=int, help="override episode length (smoke tests)")
-    parser.add_argument("--workers", type=int, default=None, help="parallel processes (default: all cores)")
+    parser.add_argument("--workers", type=int, default=4,
+                        help="parallel processes (default 4: measured fastest on the development laptop)")
     parser.add_argument("--allow-dirty", action="store_true", help="run despite uncommitted changes")
     args = parser.parse_args()
 

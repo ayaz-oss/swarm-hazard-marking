@@ -17,6 +17,7 @@ import numpy as np
 
 from swarmhazard.config import Config
 from swarmhazard.controllers import MARKING, avoidance, blocks_move, hazard_tangent
+from swarmhazard.geometry import norm
 from swarmhazard.metrics import field_auc, hazard_mask
 from swarmhazard.pheromone import RepellentField
 from swarmhazard.robots import RETURN, SEARCH, make_swarm, unit
@@ -69,7 +70,7 @@ class Simulation:
         sw.heading[searching] += noise[searching]
         if len(self.world.item_pos):
             to_items = self.world.item_pos[None, :, :] - sw.pos[:, None, :]
-            dist = np.linalg.norm(to_items, axis=2)
+            dist = norm(to_items)
             nearest = dist.argmin(axis=1)
             rows = np.arange(len(sw.pos))
             sees_item = searching & (dist[rows, nearest] < cfg.sense_range)
@@ -103,21 +104,35 @@ class Simulation:
         sw.heading[bounce] += np.pi + kick[bounce]
 
     def _pick_up(self, searching: np.ndarray) -> None:
-        # A loop, not a vectorised op: two robots must not take the same item.
+        # Same rule as before: robots in index order take an item within
+        # pickup_radius; a taken item respawns at once and may then be taken by
+        # a later robot. Distances are computed once; after the first pickup in
+        # a step, later robots re-check against the moved item.
         if len(self.world.item_pos) == 0:
             return
         sw = self.swarm
-        for i in np.flatnonzero(searching):
-            d = np.linalg.norm(self.world.item_pos - sw.pos[i], axis=1)
+        idx = np.flatnonzero(searching)
+        if len(idx) == 0:
+            return
+        items = self.world.item_pos
+        dist = norm(items[None, :, :] - sw.pos[idx][:, None, :])  # (S, M)
+        close = np.flatnonzero(dist.min(axis=1) < self.cfg.pickup_radius)
+        if len(close) == 0:
+            return
+        changed = False
+        for row in range(close[0], len(idx)):  # rows before the first close one cannot pick up
+            i = idx[row]
+            d = norm(items - sw.pos[i]) if changed else dist[row]
             j = int(d.argmin())
             if d[j] < self.cfg.pickup_radius:
                 sw.state[i] = RETURN
                 self.picked_up += 1
                 respawn_item(self.world, j, self.respawn_rng)
+                changed = True
 
     def _deliver(self, returning: np.ndarray) -> None:
         sw = self.swarm
-        at_nest = returning & (np.linalg.norm(sw.pos - self.nest, axis=1) < self.cfg.nest_radius)
+        at_nest = returning & (norm(sw.pos - self.nest) < self.cfg.nest_radius)
         sw.state[at_nest] = SEARCH
         fresh = self.motion_rng.uniform(-np.pi, np.pi, len(sw.pos))  # one draw per robot, always
         sw.heading[at_nest] = fresh[at_nest]
@@ -137,7 +152,7 @@ class Simulation:
         dead = np.flatnonzero(~sw.alive)
         if len(dead) == 0:
             return
-        dist = np.linalg.norm(sw.pos[:, None, :] - sw.pos[None, dead, :], axis=2)  # (N, D)
+        dist = norm(sw.pos[:, None, :] - sw.pos[None, dead, :])  # (N, D)
         visible = sw.alive[:, None] & (dist < cfg.sense_range)
         new = visible & ~self.seen[:, dead]
         for col in np.flatnonzero(new.any(axis=0)):
