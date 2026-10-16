@@ -9,11 +9,10 @@ import pytest
 
 from swarmhazard.config import Config
 from swarmhazard.seeding import make_rng
-from swarmhazard.sim import run
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-from make_golden import GOLDEN_CASES  # noqa: E402
+from make_golden import GOLDEN_CASES, golden_record  # noqa: E402
 
 GOLDEN = json.loads((ROOT / "tests" / "data" / "golden.json").read_text())
 
@@ -24,9 +23,13 @@ def same(a, b) -> bool:
     return a == b
 
 
+def test_golden_file_covers_every_case():
+    assert set(GOLDEN) == set(GOLDEN_CASES)
+
+
 @pytest.mark.parametrize("name", sorted(GOLDEN_CASES))
 def test_run_output_is_unchanged(name):
-    result = run(Config(**GOLDEN_CASES[name]), make_rng("golden", 0, 0))
+    result = golden_record(Config(**GOLDEN_CASES[name]), make_rng("golden", 0, 0))
     expected = GOLDEN[name]
     # Compare only keys present in the golden file, so new result keys can be added.
     diffs = {k: (result[k], v) for k, v in expected.items() if not same(result[k], v)}
