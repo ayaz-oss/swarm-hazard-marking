@@ -1,0 +1,8 @@
+# E3: swarm size (spec section 4).
+name: E3
+base: configs/baseline.yaml
+controllers: [C0, C1, C2, C3, C4]
+seeds: 100
+overrides_file: configs/tuned_params.yaml
+grid:
+  n_robots: [5, 10, 20, 40, 80]

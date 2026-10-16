@@ -33,8 +33,7 @@ metric (ties count half), computed with `swarmhazard.stats.a12`.
 operationalised as a one-sided bound, because the hypothesis is about a cost: C2 doing
 better than C0 in the control does not count against it.
 
-The random-failure mechanism used by E2's no-hazard level is specified in this file
-before E2 runs.
+The random-failure mechanism used by E2's no-hazard level is specified below (Random-failure control).
 
 ## Statistics
 
@@ -93,6 +92,24 @@ before E2 runs.
    marginal means show no trend in repel_weight or decay. The pre-registered selection
    (repel_weight 0.5, deposit_sigma 0.3, decay 0.0002; risk_k 0.5) is kept, and the paper
    will state that C2's performance was insensitive to these parameters over the grid.
+
+## Experiment levels (spec section 4; addendum `docs/superpowers/specs/2026-10-16-week-3-addendum.md`)
+
+| Exp | Cells, in order |
+|---|---|
+| E1 | baseline |
+| E2 | 0 next to patch (8.81, 6.19); 1 between patch and nest (6.25, 6.25); 2 far from everything (5.0, 9.0); 3 no hazard, random failures |
+| E3 | n_robots 5, 10, 20, 40, 80 |
+| E4 | lethality 0.005, 0.02, 0.1, 1.0 |
+| E5 | radius 0.5 m at (8.4546, 6.5454); 1 m at (8.81, 6.19); 2 m at (9.5153, 5.4847) — the 2 m hazard extends past the east wall; results are read against the in-arena hazard area |
+
+## Random-failure control (E2 cell 3)
+
+No hazards. Every step, each live robot fails independently with probability
+q = 0.0000266, wherever it is, leaving a wreck there. q matches C0's mean losses at
+baseline in the week-2 go/no-go re-check (4.67 of 20 robots per 10,000-step run):
+q = 1 − (1 − 4.67/20)^(1/10000) ≈ 2.66 × 10⁻⁵. Random failures use their own random
+stream, so all other randomness is identical to runs without them.
 
 ## Reproducibility claim
 

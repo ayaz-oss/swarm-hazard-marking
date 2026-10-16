@@ -1,0 +1,12 @@
+# E5: hazard radius (spec section 4; addendum section 2). The hazard edge stays 0.1 m
+# from the (7.5, 7.5) patch edge in the baseline direction; the 2 m hazard extends past
+# the east wall, so read results against the reported hazard_area.
+name: E5
+base: configs/baseline.yaml
+controllers: [C0, C1, C2, C3, C4]
+seeds: 100
+overrides_file: configs/tuned_params.yaml
+cells:
+  - {hazards: [[8.4546, 6.5454, 0.5]]}   # 0: radius 0.5 m
+  - {}                                  # 1: radius 1 m (baseline)
+  - {hazards: [[9.5153, 5.4847, 2.0]]}   # 2: radius 2 m
