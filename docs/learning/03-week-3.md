@@ -2,10 +2,11 @@
 
 ## What we ran
 
-Five pre-registered experiments, each with controllers C0–C4 and 100 seeds per
+Five pre-registered main experiments (E6 and E7 are pre-registered for later
+weeks), each with controllers C0–C4 and 100 seeds per
 cell (every controller sees the same seed, so results are paired):
 
-| Experiment | Cells | Runs | Batch time |
+| Experiment | Cells | Runs | Batch time (wall-clock, 4 parallel workers) |
 |---|---|---|---|
 | E1 baseline | 1 | 500 | 770 s |
 | E2 hazard placement | 4 (next to patch, between patch and nest, far, no hazard with random failures) | 2,000 | 4,828 s |
@@ -38,15 +39,28 @@ CIs. The median paired difference is first minus second, per seed.
 | H1 (E1) | C2 delivers more items than C0 | medians 45 vs 42; median paired difference 3 [1.5, 4]; A12 = 0.661 [0.620, 0.706]; p = 2.5e-11, Holm p = 5.0e-11 | Yes |
 | H2 (E1) | C2 loses fewer robots than C1 | medians C1 3, C2 2; median paired difference 1 [1, 1]; A12(C1, C2) = 0.789 [0.742, 0.835]; p = 5.5e-15, Holm p = 1.7e-14 | Yes |
 | H3 (E2, no hazard) | C2's cost relative to C0 is small | medians 45 vs 43; median paired difference 1 [0, 2.5]; A12 = 0.582 [0.519, 0.646]; lower bound 0.519 against the 0.36 threshold (decided by the CI rule, so no p-value) | Yes |
-| H4 (E1) | C3 delivers more items than C2 | medians 45 vs 45; median paired difference 0 [0, 0]; A12 = 0.503 [0.499, 0.510]; p = 0.156, Holm p = 0.156 | No |
+| H4 (E1) | C3 delivers more items than C2 when the hazard is next to a patch | medians 45 vs 45; median paired difference 0 [0, 0]; A12 = 0.503 [0.499, 0.510]; p = 0.156, Holm p = 0.156 | No |
+
+### Deviations from the pre-registration
+
+These are recorded in `docs/hypotheses.md` and must be reported as deviations
+in the paper:
+
+- The week-2 go/no-go check narrowly missed its threshold (A12 0.629 against
+  0.64); we proceeded by a recorded decision instead of revising the model.
+- Confirmatory tests use the paired Wilcoxon signed-rank test instead of the
+  Mann-Whitney U test first specified, because runs are paired by seed.
+- H3 is a one-sided bound (lower CI bound of A12 above 0.36) instead of
+  |A12 - 0.5| < 0.14.
+- deposit_amount was fixed at 1 and deposit_sigma was tuned instead.
 
 **H1.** Marking the hazard helped: C2 delivered a median of 3 more items than
 C0 per seed, and a C2 run beat a C0 run about two times in three. The effect
-is modest, and the 45 vs 42 medians are close to the spread of the data (the
-C2 and C0 boxes overlap a lot in the E1 figure).
+is modest: per seed, C2 delivered more than C0 on 71 seeds, tied on 15 and
+delivered less on 14 (the C2 and C0 boxes overlap a lot in the E1 figure).
 
-**H2.** C2 lost fewer robots than C1 in nearly every seed pair (median 2 vs
-3). This was the clearest result.
+**H2.** C2 lost fewer robots than C1 on most seeds (median 2 vs 3): C2
+lost fewer on 73 of 100 seeds, tied on 23 and lost more on 4. This was the clearest result.
 
 **H3.** In the no-hazard control, C2 did not do worse than C0; if anything it
 was slightly ahead on delivered items. The lower CI bound (0.519) is well
@@ -66,8 +80,8 @@ family. Claims come from the descriptive tables (medians with bootstrap CIs).
 Where p-values are mentioned they are two-sided Wilcoxon tests against C2,
 Holm-adjusted within each experiment, and should be read as exploratory.
 
-**E2, placement.** Placement mattered a lot, mostly for the controllers that
-do not remember. With the hazard between the patch and the nest, C0 delivered
+**E2, placement.** Placement mattered a lot, mostly for the controllers without
+marking (C0, C1). With the hazard between the patch and the nest, C0 delivered
 a median of 17 items and lost 17 of 20 robots; C1 delivered 32 and lost 9;
 C2 and C3 delivered 42 and lost 4.5; C4 (the oracle) delivered 46. With the
 hazard next to the patch, the medians were C0 42, C1 43, C2 44, C4 48. Far
@@ -88,9 +102,14 @@ delivered 12, with no difference in the medians.
 **E4, lethality.** Changing lethality from 0.005 to 1.0 per step made little
 visible difference to any controller. C2's median delivered was 46, 44, 44.5
 and 45 across the four levels, and its median robots lost stayed at 2; C0
-lost 4, 4, 5, 5. We did not test why; one possibility is that robots linger
-long enough inside the hazard for even the weakest level to be lethal, but
-this is a guess, not something we checked.
+lost a median of 4, 4, 5, 5, but its mean robots lost rose from 3.52 to 4.46,
+5.42 and 5.08 for lethality 0.005, 0.02, 0.1 and 1.0 (about 50% more from
+0.005 to 0.1), and its mean first-loss step fell from about 3,029 to 2,129,
+1,981 and 2,251. So lethality matters between 0.005 and 0.1 and then flattens.
+A likely explanation, which we did not test, is saturation: crossing a 1 m
+radius hazard takes on the order of 100 or more steps, so at 0.02 per step or
+more a robot that enters almost certainly dies and raising lethality further
+changes little.
 
 **E5, radius.** Read against the in-arena hazard area (0.75, 3.18 and 8.23 m²;
 the 2 m hazard extends past the east wall, so its full circle would be larger),
@@ -135,16 +154,20 @@ git-ignored).
    consistent with the point above but worth confirming is not a coincidence
    of the implementation.
 3. **Zero items lost in E1.** items_lost is 0 in every E1 run at baseline,
-   because the return paths miss the hazard. Losing a robot therefore costs
+   Candidate explanation (not checked): the return paths miss the hazard.
+   Items are lost in 455 E2 runs, so this is specific to E1. Losing a robot therefore costs
    throughput (that robot stops working) but never an item in transit.
 4. **E2's no-hazard robots_lost comparisons are degenerate by design.**
    Random failures share one random stream, so robots_lost is identical across
    controllers on every seed in that cell. Only delivered items can differ
-   there, which is why H3 uses delivered items.
-5. **The oracle is not always best.** In the no-hazard cell C4 delivered a
-   median of 43, below C2 (45) and C3 (44), though the Holm-adjusted p-values
-   against C2 were not below 0.05 (0.097 for C4 vs C2). C4 and C0 both have a median of 43 in
-   this cell, so this may be noise, but it is an unexpected ordering to mention.
+   there.
+5. **C2 and C3 slightly ahead of C0 with no hazard (exploratory).** In the
+   no-hazard cell C4 behaves exactly like C0 by construction (identical
+   delivered on all 100 seeds), so its 43 is not a separate result. C2 and C3
+   delivered slightly more than C0 (C2 ahead on 57 seeds, tied on 4, behind on
+   39; Holm p 0.097, not significant). This is unexplained; we only have
+   candidate explanations (for example the marking spreading robots out) and
+   have tested none.
 6. **hazard_area is quantised.** It is measured on a 0.1 m grid, so the
    baseline is 3.18 m² rather than pi (3.14 m²). E2 cell 1 gives 3.07 m² and
    cell 2 gives 3.16 m² for the same 1 m radius, because the hazards sit at
@@ -152,10 +175,12 @@ git-ignored).
 7. **H1's effect is modest** (3 items out of about 45), and the primary-metric
    gate was a narrow miss in week 2 (A12 0.629 vs the 0.64 threshold). The
    deviation is recorded in `docs/hypotheses.md` and has to be reported as one.
-8. **E4 flatness.** Ask whether lethality should have mattered more, or whether
-   the 10,000-step runs give robots enough time in the hazard for any level to
-   be lethal.
-9. **The AUC figure's step shape.** AUC is exactly 0.5 until about 300 s, i.e.
-   until about 300 s; we have not checked why, but it likely reflects the
-   time before any mark exists, so the early part of the curve says nothing
-   about the map quality.
+8. **E4 flatness above 0.02.** Candidate explanation: saturation, because the
+   hazard crossing time (on the order of 100 or more steps) is long compared
+   with the lethality time scale. Worth confirming, for example by logging
+   steps spent inside the hazard.
+9. **The AUC figure's step shape.** AUC is exactly 0.5 until about 300 s,
+   although the median C2 first loss in E1 is at step 1605 (about 160 s). We
+   have not checked why; a candidate is a delay before the map separates the
+   hazard from its surroundings. Until then the curve says nothing about map
+   quality.
