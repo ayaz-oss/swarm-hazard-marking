@@ -3,10 +3,14 @@
 All controllers share the same search / return behaviour (see sim.py). They
 differ only here:
   C0  Ignore         - no reaction.
+  C1  Avoid wrecks   - push away from visible wrecks only; no memory, no marking.
   C2  Mark           - push away from visible wrecks and down the repellent
                        gradient; robots also deposit repellent on wrecks (MARKING).
-  C4  Oracle         - knows the true hazards: pushed away from their edges and
-                       never allowed to step inside. Upper bound, not a swarm method.
+  C3  Mark + risk    - as C2, but the push is divided by (1 + risk_k * items in
+                       view), so robots accept some risk near a rich patch.
+  C4  Oracle         - knows the true hazards and never steps inside one; when a
+                       move is blocked it slides along the hazard edge. No other
+                       avoidance. Upper bound on hazard avoidance, not a swarm method.
 """
 
 from __future__ import annotations
@@ -17,7 +21,7 @@ from swarmhazard.config import Config
 from swarmhazard.pheromone import RepellentField
 from swarmhazard.world import World, in_hazard
 
-MARKING = frozenset({"C2"})
+MARKING = frozenset({"C2", "C3"})
 
 
 def wreck_repulsion(pos: np.ndarray, wreck_pos: np.ndarray, sense_range: float) -> np.ndarray:
@@ -31,17 +35,24 @@ def wreck_repulsion(pos: np.ndarray, wreck_pos: np.ndarray, sense_range: float) 
     return (weight[..., None] * direction).sum(axis=1)
 
 
-def hazard_repulsion(pos: np.ndarray, hazard_xy: np.ndarray, hazard_r: np.ndarray,
-                     sense_range: float) -> np.ndarray:
-    """Push away from each hazard centre once within sense_range of its edge."""
-    if len(hazard_r) == 0:
-        return np.zeros_like(pos)
-    diff = pos[:, None, :] - hazard_xy[None, :, :]
+def items_in_view(pos: np.ndarray, item_pos: np.ndarray, sense_range: float) -> np.ndarray:
+    if len(item_pos) == 0:
+        return np.zeros(len(pos), dtype=int)
+    dist = np.linalg.norm(pos[:, None, :] - item_pos[None, :, :], axis=2)
+    return (dist < sense_range).sum(axis=1)
+
+
+def hazard_tangent(world: World, pos: np.ndarray, direction: np.ndarray) -> np.ndarray:
+    """Unit vector along the edge of each robot's nearest hazard, on the side closer to `direction`."""
+    diff = pos[:, None, :] - world.hazard_xy[None, :, :]
     dist = np.linalg.norm(diff, axis=2)
-    edge = dist - hazard_r[None, :]
-    weight = np.clip(1.0 - edge / sense_range, 0.0, None)
-    direction = diff / np.maximum(dist, 1e-9)[..., None]
-    return (weight[..., None] * direction).sum(axis=1)
+    rows = np.arange(len(pos))
+    nearest = dist.argmin(axis=1)
+    radial = diff[rows, nearest] / np.maximum(dist[rows, nearest], 1e-9)[:, None]
+    tangent = np.column_stack((-radial[:, 1], radial[:, 0]))
+    side = np.sign((tangent * direction).sum(axis=1))
+    side[side == 0] = 1.0
+    return tangent * side[:, None]
 
 
 def avoidance(cfg: Config, pos: np.ndarray, wreck_pos: np.ndarray, field: RepellentField,
@@ -49,11 +60,16 @@ def avoidance(cfg: Config, pos: np.ndarray, wreck_pos: np.ndarray, field: Repell
     """Vector added to each robot's intended unit heading."""
     if cfg.controller == "C0":
         return np.zeros_like(pos)
-    if cfg.controller == "C2":
-        return (cfg.wreck_weight * wreck_repulsion(pos, wreck_pos, cfg.sense_range)
+    if cfg.controller == "C1":
+        return cfg.wreck_weight * wreck_repulsion(pos, wreck_pos, cfg.sense_range)
+    if cfg.controller in ("C2", "C3"):
+        push = (cfg.wreck_weight * wreck_repulsion(pos, wreck_pos, cfg.sense_range)
                 - cfg.repel_weight * field.gradient(pos, cfg.sense_range))
+        if cfg.controller == "C3":
+            push = push / (1.0 + cfg.risk_k * items_in_view(pos, world.item_pos, cfg.sense_range))[:, None]
+        return push
     if cfg.controller == "C4":
-        return cfg.oracle_weight * hazard_repulsion(pos, world.hazard_xy, world.hazard_r, cfg.sense_range)
+        return np.zeros_like(pos)  # the oracle only refuses to enter (see blocks_move)
     raise ValueError(f"No avoidance rule for controller {cfg.controller!r}")
 
 

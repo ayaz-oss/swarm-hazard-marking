@@ -1,55 +1,32 @@
-"""Run every (controller, seed) pair of an experiment and save one CSV row per run.
+"""Run every (cell, controller, seed) of an experiment and save one CSV row per run.
 
 Usage:
     python scripts/run_experiment.py configs/experiments/gate.yaml
     python scripts/run_experiment.py configs/experiments/gate.yaml --seeds 2 --n-steps 500   # smoke test
+
+Refuses to run on uncommitted changes or an unknown git commit (unless a smoke
+test or --allow-dirty), so every row's git_commit names the code that produced it.
 """
 
 from __future__ import annotations
 
+import os
+
+os.environ.setdefault("OMP_NUM_THREADS", "1")  # one numpy thread per worker process
+
 import argparse
-import platform
-import subprocess
+import sys
 import time
 from concurrent.futures import ProcessPoolExecutor
+from functools import partial
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
-import yaml
 
-from swarmhazard.config import config_hash, load_config
-from swarmhazard.seeding import make_rng
-from swarmhazard.sim import run
+from swarmhazard.experiment import build_jobs, load_experiment, run_one
+from swarmhazard.provenance import provenance
 
 ROOT = Path(__file__).resolve().parents[1]
-
-
-def git_commit() -> str:
-    try:
-        sha = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT,
-                             capture_output=True, text=True, check=True).stdout.strip()
-        dirty = subprocess.run(["git", "status", "--porcelain"], cwd=ROOT,
-                               capture_output=True, text=True, check=True).stdout.strip()
-        return sha + ("-dirty" if dirty else "")
-    except (OSError, subprocess.CalledProcessError):
-        return "unknown"
-
-
-def run_one(job: dict) -> dict:
-    cfg = load_config(ROOT / job["base"], **job["overrides"], controller=job["controller"])
-    rng = make_rng(job["experiment"], job["cell"], job["seed"])
-    start = time.perf_counter()
-    row = run(cfg, rng)
-    row.update(
-        experiment=job["experiment"],
-        cell=job["cell"],
-        controller=job["controller"],
-        seed=job["seed"],
-        config_hash=config_hash(cfg),
-        wall_s=round(time.perf_counter() - start, 3),
-    )
-    return row
 
 
 def main() -> None:
@@ -58,35 +35,30 @@ def main() -> None:
     parser.add_argument("--seeds", type=int, help="override the number of seeds (smoke tests)")
     parser.add_argument("--n-steps", type=int, help="override episode length (smoke tests)")
     parser.add_argument("--workers", type=int, default=None, help="parallel processes (default: all cores)")
+    parser.add_argument("--allow-dirty", action="store_true", help="run despite uncommitted changes")
     args = parser.parse_args()
 
-    spec = yaml.safe_load(args.experiment.read_text())
-    overrides = dict(spec.get("overrides") or {})
+    spec = load_experiment(args.experiment, ROOT)
     smoke = args.seeds is not None or args.n_steps is not None
-    if args.n_steps is not None:
-        overrides["n_steps"] = args.n_steps
-    n_seeds = args.seeds if args.seeds is not None else spec["seeds"]
+    info = provenance(ROOT)  # recorded before running, so edits during the run cannot mislabel rows
+    commit = info["git_commit"]
+    if (commit.endswith("-dirty") or commit == "unknown") and not (smoke or args.allow_dirty):
+        sys.exit(f"Refusing to run: code version is {commit!r}. Commit first, or pass --allow-dirty.")
 
-    jobs = [
-        {"experiment": spec["name"], "base": spec["base"], "overrides": overrides,
-         "controller": c, "cell": 0, "seed": s}
-        for c in spec["controllers"]
-        for s in range(n_seeds)
-    ]
+    jobs = build_jobs(spec, seeds=args.seeds, n_steps=args.n_steps)
     start = time.perf_counter()
     with ProcessPoolExecutor(max_workers=args.workers) as pool:
-        rows = list(pool.map(run_one, jobs))
+        rows = list(pool.map(partial(run_one, root=ROOT), jobs, chunksize=4))
 
     df = pd.DataFrame(rows)
-    df["git_commit"] = git_commit()
-    df["numpy"] = np.__version__
-    df["python"] = platform.python_version()
+    for key, value in info.items():
+        df[key] = value
     out = ROOT / "results" / f"{spec['name']}{'_smoke' if smoke else ''}.csv"
     out.parent.mkdir(exist_ok=True)
     df.to_csv(out, index=False)
 
     print(f"{len(df)} runs in {time.perf_counter() - start:.1f} s -> {out}")
-    print(df.groupby("controller")[["delivered", "robots_lost"]].median())
+    print(df.groupby(["cell", "controller"])[["delivered", "robots_lost"]].median())
 
 
 if __name__ == "__main__":

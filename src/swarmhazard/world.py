@@ -63,8 +63,8 @@ def hazard_failures(world: World, pos: np.ndarray, alive: np.ndarray, lethality:
                     rng: np.random.Generator) -> np.ndarray:
     """Which robots fail this step: alive, inside a hazard, and unlucky.
 
-    Always draws one number per robot so the random stream does not depend on
-    where robots happen to be.
+    Always draws one number per robot, so this stream's consumption does not
+    depend on where robots are (the simulation gives it its own stream).
     """
     draws = rng.random(len(pos))
     return alive & in_hazard(world, pos) & (draws < lethality)

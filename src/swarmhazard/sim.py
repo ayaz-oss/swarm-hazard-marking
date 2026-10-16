@@ -3,11 +3,11 @@
 Each step, in order:
   1. choose headings  - searchers random-walk or head for a visible item;
                         returners head for the nest; the controller bends headings
-  2. move             - walls bounce robots; the oracle refuses hazard cells
+  2. move             - walls bounce robots; the oracle slides along hazard edges
   3. pick up          - a searcher within pickup_radius of an item takes it
   4. deliver          - a returner inside the nest drops its item
   5. hazard failures  - robots inside a hazard fail with probability `lethality`
-  6. mark (C2 only)   - each robot that sees a wreck for the first time deposits
+  6. mark (MARKING)   - each robot that sees a wreck for the first time deposits
                         repellent on it; then the whole field decays
 """
 
@@ -16,24 +16,33 @@ from __future__ import annotations
 import numpy as np
 
 from swarmhazard.config import Config
-from swarmhazard.controllers import MARKING, avoidance, blocks_move
+from swarmhazard.controllers import MARKING, avoidance, blocks_move, hazard_tangent
+from swarmhazard.metrics import field_auc, hazard_mask
 from swarmhazard.pheromone import RepellentField
 from swarmhazard.robots import RETURN, SEARCH, make_swarm, unit
-from swarmhazard.world import hazard_failures, make_world, respawn_item
+from swarmhazard.world import hazard_failures, in_hazard, make_world, respawn_item
 
 
 class Simulation:
     def __init__(self, cfg: Config, rng: np.random.Generator):
         self.cfg = cfg
-        self.rng = rng
-        self.world = make_world(cfg, rng)
-        self.swarm = make_swarm(cfg, rng)
+        # Separate child streams, so that a behavioural difference in one part
+        # of the simulation (e.g. a robot dying) cannot shift the random
+        # numbers used anywhere else. Controllers then share randomness for
+        # the whole run, not just until their first difference.
+        layout_rng, self.motion_rng, self.respawn_rng, self.hazard_rng = rng.spawn(4)
+        self.world = make_world(cfg, layout_rng)
+        self.swarm = make_swarm(cfg, layout_rng)
         self.field = RepellentField(cfg.arena_size, cfg.grid_cell)
+        self.hazard_mask = hazard_mask(self.world, self.field)
+        self.auc_series: list[float] = []
         n = cfg.n_robots
         self.seen = np.zeros((n, n), dtype=bool)  # seen[i, j]: robot i has already marked wreck j
         self.nest = np.asarray(cfg.nest_center, dtype=float)
         self.t = 0
         self.delivered = 0
+        self.picked_up = 0
+        self.items_lost = 0  # carried by a robot when it failed
         self.first_loss_step = -1
 
     def step(self) -> None:
@@ -51,10 +60,13 @@ class Simulation:
             self._mark()
             self.field.decay(self.cfg.decay)
         self.t += 1
+        if self.cfg.controller in MARKING and self.t % self.cfg.metric_every == 0:
+            self.auc_series.append(field_auc(self.field.grid, self.hazard_mask))
 
     def _choose_headings(self, searching: np.ndarray, returning: np.ndarray) -> None:
         cfg, sw = self.cfg, self.swarm
-        sw.heading[searching] += self.rng.normal(0.0, cfg.turn_noise, searching.sum())
+        noise = self.motion_rng.normal(0.0, cfg.turn_noise, len(sw.pos))  # one draw per robot, always
+        sw.heading[searching] += noise[searching]
         if len(self.world.item_pos):
             to_items = self.world.item_pos[None, :, :] - sw.pos[:, None, :]
             dist = np.linalg.norm(to_items, axis=2)
@@ -71,15 +83,24 @@ class Simulation:
         sw.heading[:] = np.where(sw.alive, np.arctan2(steer[:, 1], steer[:, 0]), sw.heading)
 
     def _move(self, alive: np.ndarray) -> None:
-        cfg, sw = self.cfg, self.swarm
-        new = sw.pos + cfg.speed * cfg.dt * unit(sw.heading)
+        cfg, sw, world = self.cfg, self.swarm, self.world
+        kick = self.motion_rng.normal(0.0, 0.5, len(sw.pos))  # one draw per robot, always
+        step = cfg.speed * cfg.dt
+        new = sw.pos + step * unit(sw.heading)
         hit_wall = ((new < 0) | (new > cfg.arena_size)).any(axis=1)
         new = np.clip(new, 0.0, cfg.arena_size)
-        blocked = blocks_move(cfg, self.world, new)
+        blocked = blocks_move(cfg, world, new)
+        if blocked.any():
+            # The oracle slides along the hazard edge instead of stepping in.
+            slide = np.clip(sw.pos + step * hazard_tangent(world, sw.pos, unit(sw.heading)),
+                            0.0, cfg.arena_size)
+            slides = blocked & ~in_hazard(world, slide)
+            new[slides] = slide[slides]
+            blocked = blocked & ~slides
         moves = alive & ~blocked
         sw.pos[moves] = new[moves]
         bounce = alive & (hit_wall | blocked)
-        sw.heading[bounce] += np.pi + self.rng.normal(0.0, 0.5, bounce.sum())
+        sw.heading[bounce] += np.pi + kick[bounce]
 
     def _pick_up(self, searching: np.ndarray) -> None:
         # A loop, not a vectorised op: two robots must not take the same item.
@@ -91,19 +112,22 @@ class Simulation:
             j = int(d.argmin())
             if d[j] < self.cfg.pickup_radius:
                 sw.state[i] = RETURN
-                respawn_item(self.world, j, self.rng)
+                self.picked_up += 1
+                respawn_item(self.world, j, self.respawn_rng)
 
     def _deliver(self, returning: np.ndarray) -> None:
         sw = self.swarm
         at_nest = returning & (np.linalg.norm(sw.pos - self.nest, axis=1) < self.cfg.nest_radius)
         sw.state[at_nest] = SEARCH
-        sw.heading[at_nest] = self.rng.uniform(-np.pi, np.pi, at_nest.sum())
+        fresh = self.motion_rng.uniform(-np.pi, np.pi, len(sw.pos))  # one draw per robot, always
+        sw.heading[at_nest] = fresh[at_nest]
         self.delivered += int(at_nest.sum())
 
     def _fail(self, alive: np.ndarray) -> None:
         sw = self.swarm
-        dies = hazard_failures(self.world, sw.pos, alive, self.cfg.lethality, self.rng)
+        dies = hazard_failures(self.world, sw.pos, alive, self.cfg.lethality, self.hazard_rng)
         if dies.any():
+            self.items_lost += int((dies & (sw.state == RETURN)).sum())
             sw.alive[dies] = False  # a carried item is lost with the robot
             if self.first_loss_step < 0:
                 self.first_loss_step = self.t
@@ -124,9 +148,15 @@ class Simulation:
     def result(self) -> dict:
         return {
             "delivered": self.delivered,
+            "picked_up": self.picked_up,
+            "items_lost": self.items_lost,
+            "carrying": int((self.swarm.alive & (self.swarm.state == RETURN)).sum()),
             "robots_lost": int((~self.swarm.alive).sum()),
             "first_loss_step": self.first_loss_step,
             "steps": self.t,
+            "auc_final": self.auc_series[-1] if self.auc_series else float("nan"),
+            "auc_mean": float(np.mean(self.auc_series)) if self.auc_series else float("nan"),
+            "auc_series": ";".join(f"{a:.4f}" for a in self.auc_series),
         }
 
 

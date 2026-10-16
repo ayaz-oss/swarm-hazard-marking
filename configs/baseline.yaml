@@ -33,10 +33,13 @@ lethality: 0.02           # failure probability per step inside a hazard
 controller: C0
 wreck_weight: 1.0         # C2: push away from visible wrecks
 repel_weight: 1.0         # C2: push down the repellent gradient
-oracle_weight: 2.0        # C4: push away from known hazard edges
+risk_k: 1.0               # C3: repulsion divided by (1 + risk_k * items in view)
 
 # Repellent field (C2)
 grid_cell: 0.1            # m
 deposit_amount: 1.0       # peak concentration added per robot per newly seen wreck
 deposit_sigma: 0.3        # m, Gaussian footprint
 decay: 0.0005             # fraction lost per step (half-life about 139 s)
+
+# Metrics
+metric_every: 500         # steps between localisation-AUC samples (marking controllers)

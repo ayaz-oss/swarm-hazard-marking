@@ -1,0 +1,13 @@
+# Week-2 tuning of C2 (spec section 3). The experiment name gives these runs
+# random streams independent of the gate and every main experiment (E1-E7).
+# deposit_amount is not tuned: the push scales with deposit_amount * repel_weight,
+# so tuning repel_weight covers both. wreck_weight stays 1.0 (shared with C1).
+name: tune_c2
+base: configs/baseline.yaml
+controllers: [C2]
+seeds: 20
+overrides: {}
+grid:
+  repel_weight: [0.5, 1.0, 2.0, 4.0]
+  deposit_sigma: [0.2, 0.3, 0.5]
+  decay: [0.0002, 0.0005, 0.002]

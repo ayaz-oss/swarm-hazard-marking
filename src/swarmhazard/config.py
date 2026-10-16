@@ -14,7 +14,7 @@ from pathlib import Path
 
 import yaml
 
-KNOWN_CONTROLLERS = ("C0", "C2", "C4")
+KNOWN_CONTROLLERS = ("C0", "C1", "C2", "C3", "C4")
 
 
 @dataclass(frozen=True)
@@ -49,13 +49,16 @@ class Config:
     controller: str = "C0"
     wreck_weight: float = 1.0
     repel_weight: float = 1.0
-    oracle_weight: float = 2.0
+    risk_k: float = 1.0
 
     # Repellent field
     grid_cell: float = 0.1
     deposit_amount: float = 1.0
     deposit_sigma: float = 0.3
     decay: float = 0.0005
+
+    # Metrics
+    metric_every: int = 500
 
     def __post_init__(self):
         if self.controller not in KNOWN_CONTROLLERS:

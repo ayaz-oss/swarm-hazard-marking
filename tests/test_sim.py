@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import pytest
 
@@ -78,6 +80,15 @@ def test_each_robot_marks_a_wreck_only_once():
     assert sim.field.grid.max() < first  # only decay, no second deposit
 
 
+@pytest.mark.parametrize("controller, marks",
+                         [("C0", False), ("C1", False), ("C2", True), ("C3", True), ("C4", False)])
+def test_which_controllers_mark_wrecks(controller, marks):
+    sim = new_sim(controller=controller)
+    place_wreck_next_to_robot_0(sim)
+    sim.step()
+    assert (sim.field.grid.max() > 0) == marks
+
+
 def test_oracle_never_loses_robots():
     cfg = Config(controller="C4", lethality=1.0, n_steps=5000)
     assert run(cfg, make_rng("t", 0, 2))["robots_lost"] == 0
@@ -120,3 +131,58 @@ def test_two_observers_deposit_twice():
     assert b.field.grid.max() == pytest.approx(2 * a.field.grid.max(), rel=1e-6)
     assert b.seen[0, 2]
     assert b.seen[1, 2]
+
+
+def test_one_robot_dying_does_not_change_others_randomness():
+    # Under C0 robots do not interact for the first 200 steps (no item is
+    # reachable yet), so killing robot 0 must leave every other path unchanged.
+    a = new_sim()
+    b = new_sim()
+    b.swarm.alive[0] = False
+    for _ in range(200):
+        a.step()
+        b.step()
+    assert np.array_equal(a.swarm.pos[1:], b.swarm.pos[1:])
+
+
+def test_oracle_returner_gets_round_a_hazard_in_its_way():
+    sim = new_sim(controller="C4", lethality=1.0)
+    sim.swarm.pos[0] = [9.9, 6.19]   # east of the hazard; the nest is due west
+    sim.swarm.state[0] = RETURN
+    for _ in range(2000):
+        sim.step()
+        if sim.swarm.state[0] == SEARCH:
+            break
+    assert sim.swarm.alive[0]
+    assert sim.swarm.state[0] == SEARCH  # it delivered
+
+
+def test_every_picked_up_item_is_delivered_lost_or_still_carried():
+    r = run(Config(controller="C0", lethality=0.2, n_steps=3000), make_rng("t", 0, 4))
+    assert r["picked_up"] > 0
+    assert r["delivered"] > 0
+    assert r["picked_up"] == r["delivered"] + r["items_lost"] + r["carrying"]
+
+
+def test_robot_that_dies_carrying_an_item_counts_it_as_lost():
+    sim = new_sim(lethality=1.0)
+    sim.swarm.state[0] = RETURN
+    sim.picked_up = 1            # robot 0 is carrying one item
+    sim.swarm.pos[0] = [8.81, 6.19]
+    sim.step()
+    r = sim.result()
+    assert not sim.swarm.alive[0]
+    assert r["items_lost"] == 1 and r["carrying"] == 0
+    assert r["picked_up"] == r["delivered"] + r["items_lost"] + r["carrying"]
+
+
+def test_auc_recorded_only_for_marking_controllers():
+    c0 = run(Config(controller="C0", n_steps=500), make_rng("t", 0, 3))
+    assert math.isnan(c0["auc_final"]) and c0["auc_series"] == ""
+
+    sim = new_sim(controller="C2", lethality=0.0, metric_every=1)
+    sim.swarm.alive[1] = False
+    sim.swarm.pos[1] = [8.81, 6.19]   # a wreck at the hazard centre
+    sim.swarm.pos[0] = [9.01, 6.19]   # an observer beside it
+    sim.step()
+    assert sim.result()["auc_final"] > 0.9
