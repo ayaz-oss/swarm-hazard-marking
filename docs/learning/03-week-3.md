@@ -99,17 +99,17 @@ saved is bigger for larger swarms: at 80 robots C0 delivered 150 items against
 164.5 for C2, with 19 vs 3 robots lost. At 5 robots, C0, C1, C2 and C3 all
 delivered 12, with no difference in the medians.
 
-**E4, lethality.** Changing lethality from 0.005 to 1.0 per step made little
-visible difference to any controller. C2's median delivered was 46, 44, 44.5
-and 45 across the four levels, and its median robots lost stayed at 2; C0
-lost a median of 4, 4, 5, 5, but its mean robots lost rose from 3.52 to 4.46,
+**E4, lethality.** C2 and C3 were nearly flat across lethality 0.005 to
+1.0 per step (C2 median delivered 46, 44, 44.5, 45; median robots lost 2),
+whereas C0 lost more robots as lethality rose: it lost a median of 4, 4, 5, 5, but its mean robots lost rose from 3.52 to 4.46,
 5.42 and 5.08 for lethality 0.005, 0.02, 0.1 and 1.0 (about 50% more from
 0.005 to 0.1), and its mean first-loss step fell from about 3,029 to 2,129,
-1,981 and 2,251. So lethality matters between 0.005 and 0.1 and then flattens.
+1,981 and 2,251. So lethality matters for C0 between 0.005 and 0.1 and then flattens above 0.1.
 A likely explanation, which we did not test, is saturation: crossing a 1 m
-radius hazard takes on the order of 100 or more steps, so at 0.02 per step or
-more a robot that enters almost certainly dies and raising lethality further
-changes little.
+radius hazard takes on the order of 100 or more steps, so at 0.02 per step a
+100-step crossing kills about 87% of entrants (1 - 0.98^100) and at 0.1 per
+step essentially all of them; by 0.1 almost every robot that enters dies, so
+going to 1.0 changes little.
 
 **E5, radius.** Read against the in-arena hazard area (0.75, 3.18 and 8.23 m²;
 the 2 m hazard extends past the east wall, so its full circle would be larger),
@@ -155,8 +155,8 @@ git-ignored).
    of the implementation.
 3. **Zero items lost in E1.** items_lost is 0 in every E1 run at baseline,
    Candidate explanation (not checked): the return paths miss the hazard.
-   Items are lost in 455 E2 runs, so this is specific to E1. Losing a robot therefore costs
-   throughput (that robot stops working) but never an item in transit.
+   Items are lost in 455 E2 runs, so this is specific to E1. If so, losing a
+   robot costs throughput rather than carried items.
 4. **E2's no-hazard robots_lost comparisons are degenerate by design.**
    Random failures share one random stream, so robots_lost is identical across
    controllers on every seed in that cell. Only delivered items can differ
@@ -175,7 +175,7 @@ git-ignored).
 7. **H1's effect is modest** (3 items out of about 45), and the primary-metric
    gate was a narrow miss in week 2 (A12 0.629 vs the 0.64 threshold). The
    deviation is recorded in `docs/hypotheses.md` and has to be reported as one.
-8. **E4 flatness above 0.02.** Candidate explanation: saturation, because the
+8. **E4 flattening above 0.1.** Candidate explanation: saturation, because the
    hazard crossing time (on the order of 100 or more steps) is long compared
    with the lethality time scale. Worth confirming, for example by logging
    steps spent inside the hazard.
