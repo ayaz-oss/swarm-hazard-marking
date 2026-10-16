@@ -1,0 +1,50 @@
+{
+  "C0": {
+    "auc_final": NaN,
+    "auc_mean": NaN,
+    "auc_series": "",
+    "carrying": 1,
+    "delivered": 13,
+    "first_loss_step": 820,
+    "items_lost": 0,
+    "picked_up": 14,
+    "robots_lost": 2,
+    "steps": 3000
+  },
+  "C2": {
+    "auc_final": 0.722101507173397,
+    "auc_mean": 0.5740338357244656,
+    "auc_series": "0.5000;0.5000;0.5000;0.5000;0.7221;0.7221",
+    "carrying": 1,
+    "delivered": 12,
+    "first_loss_step": 820,
+    "items_lost": 0,
+    "picked_up": 13,
+    "robots_lost": 1,
+    "steps": 3000
+  },
+  "C3": {
+    "auc_final": 0.722101507173397,
+    "auc_mean": 0.5740338357244656,
+    "auc_series": "0.5000;0.5000;0.5000;0.5000;0.7221;0.7221",
+    "carrying": 1,
+    "delivered": 12,
+    "first_loss_step": 820,
+    "items_lost": 0,
+    "picked_up": 13,
+    "robots_lost": 1,
+    "steps": 3000
+  },
+  "C4": {
+    "auc_final": NaN,
+    "auc_mean": NaN,
+    "auc_series": "",
+    "carrying": 1,
+    "delivered": 14,
+    "first_loss_step": -1,
+    "items_lost": 0,
+    "picked_up": 15,
+    "robots_lost": 0,
+    "steps": 3000
+  }
+}
