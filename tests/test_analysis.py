@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import pytest
 
 from swarmhazard.analysis import E2_NONE_CELL, compare, confirmatory, holm, paired, wilcoxon_p
 
@@ -11,6 +10,12 @@ def frame(rows):
 
 def test_holm_values():
     assert np.allclose(holm([0.01, 0.04, 0.03]), [0.03, 0.06, 0.06])
+
+
+def test_holm_propagates_nan():
+    out = holm([0.01, float("nan"), 0.02])
+    assert np.isnan(out[1])
+    assert np.allclose(out[[0, 2]], [0.02, 0.02])
 
 
 def test_paired_aligns_by_seed():

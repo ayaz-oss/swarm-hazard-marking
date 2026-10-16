@@ -15,7 +15,7 @@ def fake(name, n_cells, seeds=5):
     for cell in range(n_cells):
         for c in ["C0", "C1", "C2", "C3", "C4"]:
             for s in range(seeds):
-                rows.append({"experiment": name, "cell": cell, "controller": c, "seed": s,
+                rows.append({"experiment": name, "cell": cell, "hazard_area": [0.75, 3.18, 8.23][cell % 3], "controller": c, "seed": s,
                              "delivered": rng.integers(30, 50), "robots_lost": rng.integers(0, 6),
                              "auc_series": "0.5000;0.7000;0.8000" if c in ("C2", "C3") else ""})
     return pd.DataFrame(rows)

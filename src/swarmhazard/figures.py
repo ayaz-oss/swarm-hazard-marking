@@ -1,7 +1,8 @@
 """All paper figures, drawn from result CSVs only.
 
 One colour per controller everywhere (Okabe–Ito, colour-blind safe). Sweeps show the
-median with an interquartile band; inference lives in the analysis tables, not here.
+median with an interquartile band; inference lives in the analysis tables, not here. E5 is
+plotted against the in-arena hazard area (pre-registered), with the nominal radius in the tick labels.
 """
 
 from __future__ import annotations
@@ -32,7 +33,7 @@ LEVELS = {
     "E5": [0.5, 1.0, 2.0],
 }
 XLABEL = {"E3": "Swarm size (robots)", "E4": "Lethality per step inside the hazard",
-          "E5": "Hazard radius (m)"}
+          "E5": "Hazard area inside the arena (m²)"}
 LOGX = {"E3": True, "E4": True, "E5": False}
 METRIC_EVERY_S = 50.0  # metric_every (500 steps) x dt (0.1 s)
 
@@ -84,6 +85,13 @@ def fig_e2(df: pd.DataFrame, out_dir: Path) -> list[Path]:
 
 def fig_sweep(df: pd.DataFrame, name: str, out_dir: Path) -> list[Path]:
     x = np.asarray(LEVELS[name], float)
+    xticks = xlabels = None
+    if name == "E5":
+        # Pre-registered: read E5 against the hazard area inside the arena, not the nominal radius.
+        area = df.groupby("cell")["hazard_area"].first().reindex(range(len(x)))
+        x = area.to_numpy(float)
+        xticks = x
+        xlabels = [f"{a:.2f}\n(r {r:g} m)" for a, r in zip(x, LEVELS[name])]
     fig, axes = plt.subplots(1, 2, figsize=(8, 3.2))
     for ax, metric in zip(axes, METRICS):
         for c in CONTROLLERS:
@@ -97,6 +105,8 @@ def fig_sweep(df: pd.DataFrame, name: str, out_dir: Path) -> list[Path]:
         if LOGX[name]:
             ax.set_xscale("log")
         ax.set_xlabel(XLABEL[name])
+        if xticks is not None:
+            ax.set_xticks(xticks, xlabels, fontsize=8)
         ax.set_ylabel(METRICS[metric])
     axes[1].legend(frameon=False, fontsize=8)
     fig.suptitle(f"{name}: median with interquartile band")

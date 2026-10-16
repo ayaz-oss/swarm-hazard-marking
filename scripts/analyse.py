@@ -10,6 +10,7 @@ Usage: python scripts/analyse.py
 
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -47,22 +48,62 @@ def completeness_problems(name: str, df: pd.DataFrame) -> list[str]:
     return problems
 
 
+def _simulator_paths(root: Path) -> list[str]:
+    src = root / "src" / "swarmhazard"
+    files = sorted(f.relative_to(root).as_posix() for f in src.glob("**/*.py")
+                   if f.name not in ("analysis.py", "figures.py"))
+    return files + ["configs", "scripts/run_experiment.py"]
+
+
+def provenance_problems(frames: dict[str, pd.DataFrame], root: Path) -> list[str]:
+    """Every experiment must come from simulator code identical to the one used for E1."""
+    problems: list[str] = []
+    commits = {n: sorted(set(df["git_commit"].astype(str))) for n, df in frames.items()}
+    for name, cs in commits.items():
+        if len(cs) != 1:
+            problems.append(f"{name}: {len(cs)} git_commit values {cs}")
+        for c in cs:
+            if c.endswith("-dirty") or c == "unknown":
+                problems.append(f"{name}: git_commit {c!r} is not a clean commit")
+    ref_list = commits.get("E1", [])
+    if len(ref_list) != 1 or ref_list[0].endswith("-dirty") or ref_list[0] == "unknown":
+        return problems
+    ref = ref_list[0]
+    paths = _simulator_paths(root)
+    for name, cs in commits.items():
+        if name == "E1" or len(cs) != 1 or cs[0].endswith("-dirty") or cs[0] == "unknown":
+            continue
+        c = cs[0]
+        if c == ref:
+            print(f"{name}: code {c} (same commit as E1)")
+            continue
+        r = subprocess.run(["git", "diff", "--quiet", ref, c, "--", *paths], cwd=root)
+        if r.returncode == 0:
+            print(f"{name}: code {c} (simulator identical to {ref})")
+        else:
+            problems.append(f"{name}: simulator code at {c} differs from E1's {ref} "
+                            f"(git diff exit {r.returncode})")
+    return problems
+
+
 def main() -> int:
     missing = [n for n in MAIN if not (RESULTS / f"{n}.csv").exists()]
     if missing:
         print("missing: " + ", ".join(missing), file=sys.stderr)
         return 1
     frames = {n: pd.read_csv(RESULTS / f"{n}.csv") for n in MAIN}
+    problems = provenance_problems(frames, ROOT)
+    if problems:
+        print("Provenance check failed, no tables written:", file=sys.stderr)
+        for p in problems:
+            print("  " + p, file=sys.stderr)
+        return 1
     problems = [p for name, df in frames.items() for p in completeness_problems(name, df)]
     if problems:
         print("Incomplete results, no tables written:", file=sys.stderr)
         for p in problems:
             print("  " + p, file=sys.stderr)
         return 1
-    for name, df in frames.items():
-        commits = sorted(set(df["git_commit"].astype(str)))
-        if len(commits) != 1 or commits[0].endswith("-dirty"):
-            print(f"WARNING {name}: git_commit values {commits}", file=sys.stderr)
     OUT.mkdir(parents=True, exist_ok=True)
 
     conf = confirmatory(frames["E1"], frames["E2"], np.random.default_rng(BOOT_SEED))

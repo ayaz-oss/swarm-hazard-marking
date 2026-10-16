@@ -37,11 +37,13 @@ def wilcoxon_p(x, y, alternative: str) -> float:
 
 
 def holm(pvals) -> np.ndarray:
+    """Holm step-down adjustment; NaN inputs stay NaN and do not count towards m."""
     p = np.asarray(pvals, float)
-    m = len(p)
-    adjusted = np.empty(m)
+    adjusted = np.full(len(p), np.nan)
+    finite = np.flatnonzero(~np.isnan(p))
+    m = len(finite)
     running = 0.0
-    for rank, i in enumerate(np.argsort(p)):
+    for rank, i in enumerate(finite[np.argsort(p[finite])]):
         running = max(running, (m - rank) * p[i])
         adjusted[i] = min(1.0, running)
     return adjusted
