@@ -48,10 +48,11 @@ def completeness_problems(name: str, df: pd.DataFrame) -> list[str]:
 
 
 def main() -> int:
-    frames = {n: pd.read_csv(RESULTS / f"{n}.csv") for n in MAIN if (RESULTS / f"{n}.csv").exists()}
-    if "E1" not in frames:
-        print("results/E1.csv not found", file=sys.stderr)
+    missing = [n for n in MAIN if not (RESULTS / f"{n}.csv").exists()]
+    if missing:
+        print("missing: " + ", ".join(missing), file=sys.stderr)
         return 1
+    frames = {n: pd.read_csv(RESULTS / f"{n}.csv") for n in MAIN}
     problems = [p for name, df in frames.items() for p in completeness_problems(name, df)]
     if problems:
         print("Incomplete results, no tables written:", file=sys.stderr)
@@ -64,7 +65,7 @@ def main() -> int:
             print(f"WARNING {name}: git_commit values {commits}", file=sys.stderr)
     OUT.mkdir(parents=True, exist_ok=True)
 
-    conf = confirmatory(frames["E1"], frames.get("E2"), np.random.default_rng(BOOT_SEED))
+    conf = confirmatory(frames["E1"], frames["E2"], np.random.default_rng(BOOT_SEED))
     conf.to_csv(OUT / "confirmatory.csv", index=False)
     pd.set_option("display.width", 200)
     print(conf[["hypothesis", "x", "y", "metric", "median_x", "median_y", "median_diff",
