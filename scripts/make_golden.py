@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -39,6 +41,9 @@ GOLDEN_CASES = {
     },
     "C3": {"controller": "C3", "lethality": 0.2, "n_steps": 6000, "metric_every": 500, "risk_k": 4.0},
     "C4": {"controller": "C4", "lethality": 0.2, "n_steps": 3000},
+    "C5": {"controller": "C5", "lethality": 0.2, "n_steps": 3000, "metric_every": 500},
+    "C2_noisy": {"controller": "C2", "lethality": 0.2, "n_steps": 3000, "metric_every": 500,
+                 "q_miss": 0.2, "q_false": 0.0001},
 }
 
 
@@ -67,14 +72,33 @@ def golden_record(cfg: Config, rng: np.random.Generator) -> dict:
     return record
 
 
-def main() -> None:
-    golden = {name: golden_record(Config(**kw), make_rng("golden", 0, 0)) for name, kw in GOLDEN_CASES.items()}
+def _same(a, b) -> bool:
+    if isinstance(a, float) and isinstance(b, float) and math.isnan(a) and math.isnan(b):
+        return True
+    return a == b
+
+
+def main() -> int:
+    add = "--add" in sys.argv[1:]
+    existing = json.loads(OUT.read_text()) if OUT.exists() else {}
+    if existing and not add:
+        print("golden.json exists; use --add to add new cases (existing ones are never rewritten)")
+        return 1
+    for name, expected in existing.items():
+        record = golden_record(Config(**GOLDEN_CASES[name]), make_rng("golden", 0, 0))
+        diffs = [k for k, v in expected.items() if not _same(record[k], v)]
+        if diffs:
+            print(f"ABORT: existing case {name} changed in {diffs}; nothing written")
+            return 1
+    for name, kw in GOLDEN_CASES.items():
+        if name not in existing:
+            existing[name] = golden_record(Config(**kw), make_rng("golden", 0, 0))
+            r = existing[name]
+            print("added", name, {k: r[k] for k in ("delivered", "robots_lost", "picked_up", "auc_final")})
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(golden, indent=2, sort_keys=True))
-    print(f"wrote {OUT}")
-    for name, r in golden.items():
-        print(name, {k: r[k] for k in ("delivered", "robots_lost", "picked_up", "state_digest")})
+    OUT.write_text(json.dumps(existing, indent=2, sort_keys=True))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
