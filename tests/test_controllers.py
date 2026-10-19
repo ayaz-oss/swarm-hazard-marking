@@ -85,3 +85,14 @@ def test_undetected_wrecks_do_not_repel():
     wrecks = np.array([[0.8, 0.0]])
     assert wreck_repulsion(pos, wrecks, 0.5, detected=np.array([[True]]))[0, 0] > 0
     assert np.all(wreck_repulsion(pos, wrecks, 0.5, detected=np.array([[False]])) == 0)
+
+
+def test_c5_steers_down_its_own_map_only():
+    cfg, world, field = setup("C5")
+    maps = np.zeros((2, field.n, field.n))
+    sx, sy, values = field.bump((5.0, 5.0), 5.0, 0.3)
+    maps[0, sx, sy] += values
+    pos = np.array([[5.3, 5.0], [5.3, 5.0]])
+    push = avoidance(cfg, pos, np.zeros((0, 2)), field, world, maps=maps)
+    assert push[0, 0] > 0
+    assert np.all(push[1] == 0)

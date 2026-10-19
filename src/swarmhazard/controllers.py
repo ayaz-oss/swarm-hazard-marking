@@ -11,6 +11,9 @@ differ only here:
   C4  Oracle         - knows the true hazards and never steps inside one; when a
                        move is blocked it slides along the hazard edge. No other
                        avoidance. Upper bound on hazard avoidance, not a swarm method.
+  C5  Own maps       - as C2, but each robot keeps its own repellent map, marks it
+                       itself and merges it with neighbours within comm_range once
+                       per share_every steps (PERSONAL). No shared field.
 """
 
 from __future__ import annotations
@@ -19,10 +22,11 @@ import numpy as np
 
 from swarmhazard.config import Config
 from swarmhazard.geometry import norm
-from swarmhazard.pheromone import RepellentField
+from swarmhazard.pheromone import RepellentField, personal_gradient
 from swarmhazard.world import World, in_hazard
 
 MARKING = frozenset({"C2", "C3"})
+PERSONAL = frozenset({"C5"})
 
 
 def wreck_repulsion(pos: np.ndarray, wreck_pos: np.ndarray, sense_range: float,
@@ -77,6 +81,9 @@ def avoidance(cfg: Config, pos: np.ndarray, wreck_pos: np.ndarray, field: Repell
         if cfg.controller == "C3":
             push = push / (1.0 + cfg.risk_k * items_in_view(pos, world.item_pos, cfg.sense_range))[:, None]
         return push
+    if cfg.controller == "C5":
+        return (cfg.wreck_weight * wreck_repulsion(pos, wreck_pos, cfg.sense_range, detected)
+                - cfg.repel_weight * personal_gradient(maps, pos, cfg.sense_range, field.cell))
     if cfg.controller == "C4":
         return np.zeros_like(pos)  # the oracle only refuses to enter (see blocks_move)
     raise ValueError(f"No avoidance rule for controller {cfg.controller!r}")

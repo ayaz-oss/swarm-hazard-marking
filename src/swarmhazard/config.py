@@ -14,7 +14,7 @@ from pathlib import Path
 
 import yaml
 
-KNOWN_CONTROLLERS = ("C0", "C1", "C2", "C3", "C4")
+KNOWN_CONTROLLERS = ("C0", "C1", "C2", "C3", "C4", "C5")
 
 
 @dataclass(frozen=True)
@@ -54,6 +54,8 @@ class Config:
     wreck_weight: float = 1.0
     repel_weight: float = 1.0
     risk_k: float = 1.0
+    share_every: int = 10     # C5: steps between map exchanges (1 s)
+    comm_range: float = 1.0   # C5: m, robots this close exchange maps
 
     # Repellent field
     grid_cell: float = 0.1
@@ -76,6 +78,10 @@ class Config:
             value = getattr(self, name)
             if not 0.0 <= value <= 1.0:
                 raise ValueError(f"{name} must be in [0, 1], got {value}")
+        if self.share_every < 1:
+            raise ValueError(f"share_every must be >= 1, got {self.share_every}")
+        if self.comm_range < 0:
+            raise ValueError(f"comm_range must be >= 0, got {self.comm_range}")
 
 
 def _freeze(value):

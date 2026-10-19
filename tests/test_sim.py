@@ -222,3 +222,34 @@ def test_false_sightings_mark_only_for_marking_controllers(controller, deposits)
     r = sim.result()
     assert r["false_sightings"] == sim.cfg.n_robots
     assert (sim.field.grid.max() > 0) == deposits
+
+
+def test_c5_marks_only_the_observers_own_map():
+    sim = new_sim(controller="C5")
+    place_wreck_next_to_robot_0(sim)
+    sim.step()
+    assert sim.maps[0].max() > 0
+    assert sim.maps[2:].max() == 0
+    assert sim.field.grid.max() == 0
+
+
+def test_c5_maps_spread_one_hop_per_exchange():
+    sim = new_sim(controller="C5", share_every=1)
+    sim.maps[0, 30, 30] = 5.0
+    sim.swarm.pos[0] = [3.0, 3.0]
+    sim.swarm.pos[2] = [3.5, 3.0]   # 0.5 m from robot 0
+    sim.swarm.pos[4] = [4.3, 3.0]   # 0.8 m from robot 2, 1.3 m from robot 0
+    sim.step()
+    assert sim.maps[2, 30, 30] > 0
+    assert sim.maps[4, 30, 30] == 0   # needs a second exchange
+    sim.step()
+    assert sim.maps[4, 30, 30] > 0
+
+
+def test_c5_localisation_uses_the_live_robots_mean_map():
+    sim = new_sim(controller="C5", lethality=0.0, metric_every=1)
+    sim.swarm.alive[1] = False
+    sim.swarm.pos[1] = [8.81, 6.19]
+    sim.swarm.pos[0] = [9.01, 6.19]
+    sim.step()
+    assert sim.result()["auc_final"] > 0.5

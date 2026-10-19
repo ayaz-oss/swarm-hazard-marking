@@ -42,3 +42,9 @@ def test_hash_stable_and_sensitive():
 def test_noise_probabilities_validated(field, value):
     with pytest.raises(ValueError):
         Config(**{field: value})
+
+
+@pytest.mark.parametrize("field, value", [("share_every", 0), ("comm_range", -1.0)])
+def test_c5_settings_validated(field, value):
+    with pytest.raises(ValueError):
+        Config(**{field: value})
