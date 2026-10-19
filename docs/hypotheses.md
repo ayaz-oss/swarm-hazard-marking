@@ -102,6 +102,8 @@ The random-failure mechanism used by E2's no-hazard level is specified below (Ra
 | E3 | n_robots 5, 10, 20, 40, 80 |
 | E4 | lethality 0.005, 0.02, 0.1, 1.0 |
 | E5 | radius 0.5 m at (8.4546, 6.5454); 1 m at (8.81, 6.19); 2 m at (9.5153, 5.4847) — the 2 m hazard extends past the east wall; results are read against the in-arena hazard area |
+| E6 | n_robots 5, 10, 20, 40, 80 |
+| E7 | (q_miss, q_false) = (0, 0); (0.2, 0); (0, 0.00001); (0.2, 0.00001) |
 
 ## Random-failure control (E2 cell 3)
 
@@ -110,6 +112,30 @@ q = 0.0000266, wherever it is, leaving a wreck there. q matches C0's mean losses
 baseline in the week-2 go/no-go re-check (4.67 of 20 robots per 10,000-step run):
 q = 1 − (1 − 4.67/20)^(1/10000) ≈ 2.66 × 10⁻⁵. Random failures use their own random
 stream, so all other randomness is identical to runs without them.
+
+## Week-4 experiments (exploratory; `docs/superpowers/specs/2026-10-19-week-4-addendum.md`)
+
+No confirmatory hypotheses. Analysed with the exploratory tables above (Friedman per
+cell, two-sided Wilcoxon vs C2, Holm within each experiment) and descriptive tables.
+
+| Exp | Controllers | Cells, in order |
+|---|---|---|
+| E6 | C2, C5 | n_robots 5, 10, 20, 40, 80 |
+| E7 | C0, C1, C2, C3 | (q_miss, q_false) = (0, 0); (0.2, 0); (0, 0.00001); (0.2, 0.00001) |
+
+- **C5:** each robot keeps its own repellent map, marks it itself, and every 10 steps
+  (1 s) takes the cell-wise maximum with the maps of live robots within 1 m
+  (synchronous, one hop per exchange). Uses C2's tuned parameters; not tuned itself.
+  Localisation AUC uses the mean of the live robots' maps.
+- **Known confound in E6:** C2's shared field sums deposits (a wreck seen by k robots peaks near k × deposit_amount), whereas C5 merges maps by element-wise maximum (peaks near deposit_amount), and both use the same untuned repel_weight. C2 therefore pushes harder at well-observed wrecks. E6 compares the two mechanisms as specified, so any C2–C5 difference reflects both where the information is held and how strongly it repels. Localisation AUC is rank-based and unaffected by this scale difference.
+- **Misses:** each step, each robot misses each wreck in range with probability q_miss
+  (no repulsion and no marking from it that step).
+- **False sightings:** each step, each live robot sees a non-existent wreck at its own
+  position with probability q_false; marking controllers deposit there.
+- C0 is added to E7 as a reference; the base spec listed C1–C3.
+- E6 and E7 run from a frozen worktree (`scripts/run_batch.py`). Their simulator code
+  differs from E1's; they are accepted only if every golden case recorded at E1's commit
+  is unchanged at theirs (C0–C4 behaviour bit-identical).
 
 ## Reproducibility claim
 

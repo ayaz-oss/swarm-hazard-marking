@@ -1,4 +1,5 @@
-"""Run the pre-registered analysis (docs/hypotheses.md) on results/E*.csv.
+"""Run the pre-registered analysis (docs/hypotheses.md) on results/E1-E7.csv; E6/E7 are accepted
+only if every golden case from E1's commit is unchanged at theirs.
 
 Writes results/analysis/confirmatory.csv and, per experiment, *_descriptive.csv and
 *_exploratory.csv. Each table uses its own bootstrap generator seeded 20261016, so every
@@ -10,6 +11,7 @@ Usage: python scripts/analyse.py
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -23,7 +25,7 @@ from swarmhazard.experiment import build_cells, load_experiment
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "results"
 OUT = RESULTS / "analysis"
-MAIN = ["E1", "E2", "E3", "E4", "E5"]
+MAIN = ["E1", "E2", "E3", "E4", "E5", "E6", "E7"]
 
 
 def completeness_problems(name: str, df: pd.DataFrame) -> list[str]:
@@ -58,6 +60,29 @@ def _simulator_paths(root: Path) -> list[str]:
     return files + ["configs", "scripts/run_experiment.py"]
 
 
+def _same_record(a: dict, b: dict) -> bool:
+    if a.keys() != b.keys():
+        return False
+    for k in a:
+        x, y = a[k], b[k]
+        if isinstance(x, float) and isinstance(y, float) and x != x and y != y:
+            continue
+        if x != y:
+            return False
+    return True
+
+
+def golden_unchanged(ref: dict, new: dict) -> bool:
+    """Every golden case recorded at the reference commit is present and identical."""
+    return all(name in new and _same_record(new[name], record) for name, record in ref.items())
+
+
+def _golden_at(commit: str, root: Path) -> dict:
+    text = subprocess.run(["git", "show", f"{commit}:tests/data/golden.json"], cwd=root,
+                          capture_output=True, text=True, check=True).stdout
+    return json.loads(text)
+
+
 def provenance_problems(frames: dict[str, pd.DataFrame], root: Path) -> list[str]:
     """Every experiment must come from simulator code identical to the one used for E1."""
     problems: list[str] = []
@@ -84,8 +109,16 @@ def provenance_problems(frames: dict[str, pd.DataFrame], root: Path) -> list[str
         if r.returncode == 0:
             print(f"{name}: code {c} (simulator identical to {ref})")
         else:
-            problems.append(f"{name}: simulator code at {c} differs from E1's {ref} "
-                            f"(git diff exit {r.returncode})")
+            try:
+                same = golden_unchanged(_golden_at(ref, root), _golden_at(c, root))
+            except subprocess.CalledProcessError:
+                same = False
+            if same:
+                print(f"{name}: code {c} (simulator changed; every golden case from {ref} "
+                      f"reproduced bit-identically)")
+            else:
+                problems.append(f"{name}: simulator code at {c} differs from E1's {ref} "
+                                f"and the golden cases do not match")
     return problems
 
 

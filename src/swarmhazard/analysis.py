@@ -17,7 +17,7 @@ from swarmhazard.stats import a12
 
 N_BOOT = 10_000
 BOOT_SEED = 20261016
-CONTROLLERS = ["C0", "C1", "C2", "C3", "C4"]
+CONTROLLERS = ["C0", "C1", "C2", "C3", "C4", "C5"]
 E2_NONE_CELL = 3
 H3_BOUND = 0.36
 

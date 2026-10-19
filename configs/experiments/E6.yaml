@@ -1,0 +1,9 @@
+# E6 (exploratory): shared field (C2) vs per-robot maps shared with neighbours (C5),
+# across swarm size. Week-4 addendum section 3.
+name: E6
+base: configs/baseline.yaml
+controllers: [C2, C5]
+seeds: 100
+overrides_file: configs/tuned_params.yaml
+grid:
+  n_robots: [5, 10, 20, 40, 80]

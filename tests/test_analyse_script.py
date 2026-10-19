@@ -36,3 +36,13 @@ def test_completeness_requires_the_exact_seed_set():
     df = complete_e1_frame()
     df.loc[df.index[0], "seed"] = 100   # right count, wrong identity
     assert completeness_problems("E1", df)
+
+
+from analyse import golden_unchanged  # noqa: E402
+
+
+def test_golden_unchanged_allows_added_cases_only():
+    ref = {"C0": {"delivered": 13, "state_digest": "a"}}
+    assert golden_unchanged(ref, {"C0": {"delivered": 13, "state_digest": "a"}, "C5": {"delivered": 9}})
+    assert not golden_unchanged(ref, {"C0": {"delivered": 14, "state_digest": "a"}})
+    assert not golden_unchanged(ref, {"C5": {"delivered": 9}})
