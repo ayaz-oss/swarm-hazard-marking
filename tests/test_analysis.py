@@ -68,9 +68,11 @@ def test_descriptive_and_exploratory_on_synthetic_data():
     df = frame(rows)
     df["auc_final"] = np.nan
     df["hazard_area"] = 3.18
+    df["false_sightings"] = 2.0
     d = descriptive(df, np.random.default_rng(1), n_boot=500).set_index("controller")
     assert np.isnan(d.loc["C4", "items_per_robot_lost"])
     assert d.loc["C0", "items_per_robot_lost"] > 0
+    assert d.loc["C0", "false_sightings_mean"] == 2.0
     e = exploratory(df, np.random.default_rng(1), n_boot=500)
     assert set(e["x"]) == {"C0", "C4"} and set(e["metric"]) == {"delivered", "robots_lost"}
     assert e["p_holm"].between(0, 1).all()

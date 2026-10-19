@@ -83,6 +83,32 @@ def _golden_at(commit: str, root: Path) -> dict:
     return json.loads(text)
 
 
+def package_root_ok(root_value: str, commit: str) -> bool:
+    """True if the recorded package root is the frozen worktree for exactly this commit."""
+    return str(root_value).replace("\\", "/").rstrip("/").endswith(f"/.batch/{commit}/src")
+
+
+def _golden_branch_problems(name: str, df: pd.DataFrame, ref: str, c: str, root: Path) -> list[str]:
+    """Extra checks for a batch run from a different, golden-verified simulator version."""
+    problems: list[str] = []
+    if "package_root" not in df:
+        problems.append(f"{name}: no package_root column; cannot verify the code ran from .batch/{c}")
+    elif df["package_root"].astype(str).nunique() == 1:
+        value = str(df["package_root"].iloc[0])
+        if not package_root_ok(value, c):
+            problems.append(f"{name}: package_root {value!r} does not end with /.batch/{c}/src")
+    if subprocess.run(["git", "diff", "--quiet", ref, c, "--", "configs/tuned_params.yaml"],
+                      cwd=root).returncode != 0:
+        problems.append(f"{name}: configs/tuned_params.yaml differs between {ref} and {c}")
+    diff = subprocess.run(["git", "diff", ref, c, "--", "configs/baseline.yaml"], cwd=root,
+                          capture_output=True, text=True).stdout
+    removed = [ln for ln in diff.splitlines() if ln.startswith("-") and not ln.startswith("---")]
+    if removed:
+        problems.append(f"{name}: configs/baseline.yaml has removed/changed lines between "
+                        f"{ref} and {c}: {removed}")
+    return problems
+
+
 def provenance_problems(frames: dict[str, pd.DataFrame], root: Path) -> list[str]:
     """Every experiment must come from simulator code identical to the one used for E1."""
     problems: list[str] = []
@@ -96,6 +122,10 @@ def provenance_problems(frames: dict[str, pd.DataFrame], root: Path) -> list[str
     ref_list = commits.get("E1", [])
     if len(ref_list) != 1 or ref_list[0].endswith("-dirty") or ref_list[0] == "unknown":
         return problems
+    for name, df in frames.items():
+        if "package_root" in df and df["package_root"].astype(str).nunique() != 1:
+            problems.append(f"{name}: package_root must hold a single value, found "
+                            f"{sorted(set(df['package_root'].astype(str)))}")
     ref = ref_list[0]
     paths = _simulator_paths(root)
     for name, cs in commits.items():
@@ -114,6 +144,7 @@ def provenance_problems(frames: dict[str, pd.DataFrame], root: Path) -> list[str
             except subprocess.CalledProcessError:
                 same = False
             if same:
+                problems.extend(_golden_branch_problems(name, frames[name], ref, c, root))
                 print(f"{name}: code {c} (simulator changed; every golden case from {ref} "
                       f"reproduced bit-identically)")
             else:

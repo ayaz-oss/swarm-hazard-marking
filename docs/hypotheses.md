@@ -137,6 +137,8 @@ cell, two-sided Wilcoxon vs C2, Holm within each experiment) and descriptive tab
   differs from E1's; they are accepted only if every golden case recorded at E1's commit
   is unchanged at theirs (C0–C4 behaviour bit-identical).
 
+**Clarification added 2026-10-19, after the E6/E7 batch started (no data examined):** the 'Known confound in E6' bullet above understates C5's deposits. In C5 each robot also adds a full bump when it first sees a wreck itself (its `seen` record is its own), even if it already received that wreck through an exchange, so C5's map values can exceed deposit_amount; C5's exchange itself takes the element-wise maximum. The confound therefore concerns how deposits from several observers combine (sum in the shared field vs max-merge plus own bumps), not a fixed k-to-1 ratio. Rank-based AUC is unaffected by a uniform rescaling, but summing and max-merging can change the relative ranks between wrecks seen by different numbers of robots, so AUC is not strictly unaffected. C5's AUC uses the mean of the live robots' maps, a swarm-level quantity no single robot holds. E7 cells use different random layouts (the seed stream depends on the cell), so comparisons across noise levels are unpaired and not covered by the pre-registered tests; they will be reported descriptively.
+
 ## Reproducibility claim
 
 Exact re-runs are claimed on the same machine and software environment (recorded per row).

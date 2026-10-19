@@ -157,5 +157,6 @@ def descriptive(df: pd.DataFrame, rng: np.random.Generator, n_boot: int = N_BOOT
             "items_per_robot_lost": float(delivered.sum() / total_lost) if total_lost > 0 else float("nan"),
             "auc_final_median": float(sub["auc_final"].median()) if "auc_final" in sub else float("nan"),
             "hazard_area": float(sub["hazard_area"].iloc[0]) if "hazard_area" in sub else float("nan"),
+            "false_sightings_mean": float(sub["false_sightings"].mean()) if "false_sightings" in sub else float("nan"),
         })
     return pd.DataFrame(rows)

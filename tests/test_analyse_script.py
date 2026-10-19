@@ -6,7 +6,8 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-from analyse import completeness_problems, provenance_problems  # noqa: E402
+from analyse import (completeness_problems, golden_unchanged, package_root_ok,  # noqa: E402
+                     provenance_problems)
 
 from swarmhazard.experiment import load_experiment  # noqa: E402
 
@@ -38,11 +39,15 @@ def test_completeness_requires_the_exact_seed_set():
     assert completeness_problems("E1", df)
 
 
-from analyse import golden_unchanged  # noqa: E402
-
-
 def test_golden_unchanged_allows_added_cases_only():
     ref = {"C0": {"delivered": 13, "state_digest": "a"}}
     assert golden_unchanged(ref, {"C0": {"delivered": 13, "state_digest": "a"}, "C5": {"delivered": 9}})
     assert not golden_unchanged(ref, {"C0": {"delivered": 14, "state_digest": "a"}})
     assert not golden_unchanged(ref, {"C5": {"delivered": 9}})
+
+
+def test_package_root_ok():
+    assert package_root_ok("C:/x/Research Project/.batch/5d8ca9e/src", "5d8ca9e")
+    assert package_root_ok(r"C:\x\Research Project\.batch\5d8ca9e\src", "5d8ca9e")
+    assert not package_root_ok("C:/x/Research Project/src", "5d8ca9e")
+    assert not package_root_ok(".batch/abcdef1/src", "5d8ca9e")
