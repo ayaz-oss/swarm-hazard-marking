@@ -76,6 +76,7 @@ def test_main_experiments_are_valid_and_use_tuned_parameters():
     assert len(e2) == 4
     assert e2[3]["hazards"] == [] and e2[3]["random_fail_rate"] > 0
 
+
 def test_main_experiment_levels_are_exactly_as_preregistered():
     def cells(name):
         return build_cells(load_experiment(ROOT / "configs" / "experiments" / f"{name}.yaml", ROOT))

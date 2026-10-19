@@ -258,9 +258,12 @@ def test_c5_localisation_uses_the_live_robots_mean_map():
 def test_hazard_and_random_failure_together_count_each_robot_once():
     sim = new_sim(lethality=1.0, random_fail_rate=1.0)
     sim.swarm.pos[:] = [8.81, 6.19]
+    sim.swarm.state[:] = RETURN
+    sim.picked_up = sim.cfg.n_robots
     sim.step()
     r = sim.result()
     assert r["robots_lost"] == sim.cfg.n_robots
+    assert r["items_lost"] == sim.cfg.n_robots   # each carrier counted once
     assert r["first_loss_step"] == 0
 
 
@@ -285,7 +288,7 @@ def test_c5_auc_ignores_dead_robots_maps():
     sim.swarm.alive[1] = False
     sim.swarm.pos[1] = [8.81, 6.19]
     sim.swarm.pos[0] = [9.01, 6.19]
-    sim.maps[1, 10, 10] = 1000.0        # a huge value far from the hazard, in a dead robot's map
+    sim.maps[1, :60, :] = 1000.0        # a huge region far from the hazard (ix >= 78), in a dead robot's map
     sim.step()
     assert sim.result()["auc_final"] > 0.5   # would collapse if dead maps were averaged in
 
@@ -297,9 +300,11 @@ def test_c5_dead_robots_neither_send_nor_receive_maps():
     sim.maps[3, 30, 30] = 5.0           # dead robot holds information
     sim.swarm.pos[0] = [3.0, 3.0]       # live neighbour 0.2 m away
     sim.maps[0, 70, 70] = 5.0           # live robot holds other information
+    sim.swarm.pos[5] = [3.0, 3.8]       # live robot 0.8 m from robot 0: positive control
     sim.step()
     assert sim.maps[0, 30, 30] == 0     # nothing received from the dead robot
     assert sim.maps[3, 70, 70] == 0     # nothing sent to the dead robot
+    assert sim.maps[5, 70, 70] > 0      # a live neighbour does receive it
 
 
 def test_c5_maps_decay_and_false_sightings_go_into_own_map():

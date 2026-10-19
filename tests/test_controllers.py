@@ -107,6 +107,7 @@ def test_c3_scales_the_wreck_term_too():
     pos = world.item_pos[:1].copy()
     wrecks = pos + np.array([[0.2, 0.0]])
     n = items_in_view(pos, world.item_pos, c3.sense_range)[0]
+    assert n >= 1
     c2_push = avoidance(c2, pos, wrecks, field, world)
     assert np.linalg.norm(c2_push) > 0
     assert np.allclose(avoidance(c3, pos, wrecks, field, world), c2_push / (1 + 2.0 * n))

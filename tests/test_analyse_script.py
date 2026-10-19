@@ -31,6 +31,7 @@ def test_provenance_problems():
     bad = {"E1": ok["E1"], "E2": pd.DataFrame({"git_commit": ["abc-dirty"] * 2})}
     assert provenance_problems(bad, ROOT) != []
 
+
 def test_completeness_requires_the_exact_seed_set():
     df = complete_e1_frame()
     df.loc[df.index[0], "seed"] = 100   # right count, wrong identity

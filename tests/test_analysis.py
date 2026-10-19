@@ -58,6 +58,7 @@ def test_confirmatory_on_synthetic_data():
     assert not out.loc["H4", "supported"]
     assert out.loc["H3", "supported"]
 
+
 def test_descriptive_and_exploratory_on_synthetic_data():
     rng = np.random.default_rng(5)
     rows = []
