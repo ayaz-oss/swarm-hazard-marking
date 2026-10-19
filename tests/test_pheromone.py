@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from swarmhazard.pheromone import RepellentField
+from swarmhazard.pheromone import RepellentField, personal_gradient
 
 
 def test_deposit_peak_and_shape():
@@ -36,7 +36,6 @@ def test_edges_are_safe():
     v = f.value(np.array([[-1.0, -1.0], [11.0, 11.0]]))
     assert v.shape == (2,)
     assert np.all(v > 0)
-from swarmhazard.pheromone import personal_gradient
 
 
 def test_bump_matches_deposit():

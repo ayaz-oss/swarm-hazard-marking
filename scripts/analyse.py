@@ -45,6 +45,9 @@ def completeness_problems(name: str, df: pd.DataFrame) -> list[str]:
             n = int(counts.get((cell, ctrl), 0))
             if n != spec["seeds"]:
                 problems.append(f"{name}: cell {cell} {ctrl} has {n} rows, expected {spec['seeds']}")
+    for (cell, ctrl), g in df.groupby(["cell", "controller"]):
+        if set(g["seed"].astype(int)) != set(range(spec["seeds"])):
+            problems.append(f"{name}: cell {cell} {ctrl} seeds are not exactly 0..{spec['seeds'] - 1}")
     return problems
 
 

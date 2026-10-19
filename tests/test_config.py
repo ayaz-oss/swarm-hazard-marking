@@ -48,3 +48,9 @@ def test_noise_probabilities_validated(field, value):
 def test_c5_settings_validated(field, value):
     with pytest.raises(ValueError):
         Config(**{field: value})
+
+
+@pytest.mark.parametrize("field, value", [("risk_k", -0.5), ("metric_every", 0)])
+def test_more_settings_validated(field, value):
+    with pytest.raises(ValueError):
+        Config(**{field: value})

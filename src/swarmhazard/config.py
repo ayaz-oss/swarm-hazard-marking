@@ -82,6 +82,10 @@ class Config:
             raise ValueError(f"share_every must be >= 1, got {self.share_every}")
         if self.comm_range < 0:
             raise ValueError(f"comm_range must be >= 0, got {self.comm_range}")
+        if self.risk_k < 0:
+            raise ValueError(f"risk_k must be >= 0, got {self.risk_k}")
+        if self.metric_every < 1:
+            raise ValueError(f"metric_every must be >= 1, got {self.metric_every}")
 
 
 def _freeze(value):

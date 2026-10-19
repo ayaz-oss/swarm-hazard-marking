@@ -11,10 +11,14 @@ from analyse import completeness_problems, provenance_problems  # noqa: E402
 from swarmhazard.experiment import load_experiment  # noqa: E402
 
 
-def test_completeness_problems_detects_missing_rows():
+def complete_e1_frame():
     spec = load_experiment(ROOT / "configs" / "experiments" / "E1.yaml", ROOT)
-    df = pd.DataFrame([{"cell": 0, "controller": c, "seed": s}
-                       for c in spec["controllers"] for s in range(spec["seeds"])])
+    return pd.DataFrame([{"cell": 0, "controller": c, "seed": s}
+                         for c in spec["controllers"] for s in range(spec["seeds"])])
+
+
+def test_completeness_problems_detects_missing_rows():
+    df = complete_e1_frame()
     assert completeness_problems("E1", df) == []
     assert completeness_problems("E1", df.iloc[1:]) != []
 
@@ -26,3 +30,8 @@ def test_provenance_problems():
     assert provenance_problems(ok, ROOT) == []
     bad = {"E1": ok["E1"], "E2": pd.DataFrame({"git_commit": ["abc-dirty"] * 2})}
     assert provenance_problems(bad, ROOT) != []
+
+def test_completeness_requires_the_exact_seed_set():
+    df = complete_e1_frame()
+    df.loc[df.index[0], "seed"] = 100   # right count, wrong identity
+    assert completeness_problems("E1", df)

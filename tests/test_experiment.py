@@ -75,3 +75,13 @@ def test_main_experiments_are_valid_and_use_tuned_parameters():
     e2 = build_cells(load_experiment(ROOT / "configs" / "experiments" / "E2.yaml", ROOT))
     assert len(e2) == 4
     assert e2[3]["hazards"] == [] and e2[3]["random_fail_rate"] > 0
+
+def test_main_experiment_levels_are_exactly_as_preregistered():
+    def cells(name):
+        return build_cells(load_experiment(ROOT / "configs" / "experiments" / f"{name}.yaml", ROOT))
+    assert cells("E1") == [{}]
+    assert cells("E2") == [{}, {"hazards": [[6.25, 6.25, 1.0]]}, {"hazards": [[5.0, 9.0, 1.0]]},
+                           {"hazards": [], "random_fail_rate": 0.0000266}]
+    assert cells("E3") == [{"n_robots": n} for n in (5, 10, 20, 40, 80)]
+    assert cells("E4") == [{"lethality": p} for p in (0.005, 0.02, 0.1, 1.0)]
+    assert cells("E5") == [{"hazards": [[8.4546, 6.5454, 0.5]]}, {}, {"hazards": [[9.5153, 5.4847, 2.0]]}]

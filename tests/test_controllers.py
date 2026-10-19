@@ -66,6 +66,7 @@ def test_c3_matches_c2_when_no_items_in_view():
     field.deposit((5.0, 5.0), 5.0, 0.3)
     pos = np.array([[5.3, 5.0]])  # beside the nest: no item within 0.5 m
     wrecks = np.array([[5.5, 5.0]])
+    assert np.linalg.norm(avoidance(c2, pos, wrecks, field, world)) > 0
     assert np.allclose(avoidance(c3, pos, wrecks, field, world), avoidance(c2, pos, wrecks, field, world))
 
 
@@ -77,6 +78,7 @@ def test_c3_pushes_less_when_items_in_view():
     n = items_in_view(pos, world.item_pos, c3.sense_range)[0]
     assert n >= 1
     expected = avoidance(c2, pos, np.zeros((0, 2)), field, world) / (1 + 2.0 * n)
+    assert np.linalg.norm(expected) > 0
     assert np.allclose(avoidance(c3, pos, np.zeros((0, 2)), field, world), expected)
 
 
@@ -96,3 +98,15 @@ def test_c5_steers_down_its_own_map_only():
     push = avoidance(cfg, pos, np.zeros((0, 2)), field, world, maps=maps)
     assert push[0, 0] > 0
     assert np.all(push[1] == 0)
+
+
+def test_c3_scales_the_wreck_term_too():
+    c2, world, _ = setup("C2")
+    c3 = Config(controller="C3", risk_k=2.0)
+    field = RepellentField(c2.arena_size, c2.grid_cell)  # empty: only the wreck term acts
+    pos = world.item_pos[:1].copy()
+    wrecks = pos + np.array([[0.2, 0.0]])
+    n = items_in_view(pos, world.item_pos, c3.sense_range)[0]
+    c2_push = avoidance(c2, pos, wrecks, field, world)
+    assert np.linalg.norm(c2_push) > 0
+    assert np.allclose(avoidance(c3, pos, wrecks, field, world), c2_push / (1 + 2.0 * n))
