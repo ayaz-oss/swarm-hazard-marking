@@ -66,6 +66,21 @@
     "state_digest": "3a22733f0461500a8fa0cffd846d44914973f9dad5b9a149dd38f3fbdcd345df",
     "steps": 3000
   },
+  "C2_noisy_deadly": {
+    "auc_final": 0.5645623212502419,
+    "auc_mean": 0.4353419860851864,
+    "auc_series": "0.4627;0.4627;0.4627;0.4627;0.4441;0.4301;0.4139;0.4026;0.3805;0.3687;0.3687;0.5646",
+    "carrying": 2,
+    "delivered": 38,
+    "false_sightings": 11,
+    "first_loss_step": 3574,
+    "hazard_area": 3.1600000000000006,
+    "items_lost": 0,
+    "picked_up": 40,
+    "robots_lost": 1,
+    "state_digest": "8ce7ebb05ced54b527319259659eee9c69026554c191bc85ab75534e15f87c83",
+    "steps": 6000
+  },
   "C3": {
     "auc_final": 0.8583302802711119,
     "auc_mean": 0.6707623712896091,

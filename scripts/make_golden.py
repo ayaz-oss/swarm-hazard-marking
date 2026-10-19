@@ -7,7 +7,10 @@ Each record is the result dict plus a SHA-256 digest of the full final state
 (positions, headings, states, alive flags, item positions, repellent grid and
 the seen matrix), so small trajectory changes are caught, not only counters.
 
-Usage: python scripts/make_golden.py
+Usage: python scripts/make_golden.py          (first run: writes the whole file)
+       python scripts/make_golden.py --add    (re-verifies every existing case bit
+                                               for bit, aborts writing nothing on any
+                                               difference, then adds only missing cases)
 """
 
 from __future__ import annotations
@@ -44,6 +47,8 @@ GOLDEN_CASES = {
     "C5": {"controller": "C5", "lethality": 0.2, "n_steps": 3000, "metric_every": 500},
     "C2_noisy": {"controller": "C2", "lethality": 0.2, "n_steps": 3000, "metric_every": 500,
                  "q_miss": 0.2, "q_false": 0.0001},
+    "C2_noisy_deadly": {"controller": "C2", "lethality": 1.0, "hazards": ((9.0, 5.0, 1.0),),
+                        "n_steps": 6000, "metric_every": 500, "q_miss": 0.5, "q_false": 0.0001},
 }
 
 
