@@ -32,6 +32,14 @@ def batch_env(worktree: Path, base: dict | None = None) -> dict:
     return env
 
 
+def imported_from(worktree: Path, env: dict) -> Path:
+    out = subprocess.run(
+        [sys.executable, "-c",
+         "import swarmhazard, pathlib; print(pathlib.Path(swarmhazard.__file__).resolve().parents[1])"],
+        cwd=worktree, env=env, capture_output=True, text=True, check=True).stdout.strip()
+    return Path(out).resolve()
+
+
 def keep_awake(on: bool) -> None:
     if sys.platform != "win32":
         return
@@ -50,9 +58,16 @@ def main() -> int:
         return 1
     sha = git("rev-parse", "--short", "HEAD")
     worktree = ROOT / ".batch" / sha
-    if not worktree.exists():
-        git("worktree", "add", "--detach", str(worktree), sha)
+    if worktree.exists():
+        print(f"Refusing: .batch/{sha} already exists; remove it with `git worktree remove .batch/{sha}`.",
+              file=sys.stderr)
+        return 1
+    git("worktree", "add", "--detach", str(worktree), sha)
     env = batch_env(worktree)
+    loaded = imported_from(worktree, env)
+    if loaded != (worktree / "src").resolve():
+        print(f"Refusing: swarmhazard would be imported from {loaded}, not the frozen copy.", file=sys.stderr)
+        return 1
     results = ROOT / "results"
     results.mkdir(exist_ok=True)
 
