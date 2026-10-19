@@ -78,3 +78,10 @@ def test_c3_pushes_less_when_items_in_view():
     assert n >= 1
     expected = avoidance(c2, pos, np.zeros((0, 2)), field, world) / (1 + 2.0 * n)
     assert np.allclose(avoidance(c3, pos, np.zeros((0, 2)), field, world), expected)
+
+
+def test_undetected_wrecks_do_not_repel():
+    pos = np.array([[1.0, 0.0]])
+    wrecks = np.array([[0.8, 0.0]])
+    assert wreck_repulsion(pos, wrecks, 0.5, detected=np.array([[True]]))[0, 0] > 0
+    assert np.all(wreck_repulsion(pos, wrecks, 0.5, detected=np.array([[False]])) == 0)

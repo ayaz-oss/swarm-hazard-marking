@@ -29,6 +29,8 @@ hazards:
   - [8.81, 6.19, 1.0]
 lethality: 0.02           # failure probability per step inside a hazard
 random_fail_rate: 0.0     # per robot per step, anywhere; E2's no-hazard control only
+q_miss: 0.0               # E7: chance per step that a robot misses a wreck in range
+q_false: 0.0              # E7: chance per step that a robot sees a wreck that is not there
 
 # Controller
 controller: C0

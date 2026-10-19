@@ -25,13 +25,20 @@ from swarmhazard.world import World, in_hazard
 MARKING = frozenset({"C2", "C3"})
 
 
-def wreck_repulsion(pos: np.ndarray, wreck_pos: np.ndarray, sense_range: float) -> np.ndarray:
-    """Sum of unit pushes away from each visible wreck, stronger when closer."""
+def wreck_repulsion(pos: np.ndarray, wreck_pos: np.ndarray, sense_range: float,
+                    detected: np.ndarray | None = None) -> np.ndarray:
+    """Sum of pushes away from each visible wreck, stronger when closer.
+
+    `detected[i, j]` False means robot i missed wreck j this step (E7 noise).
+    """
     if len(wreck_pos) == 0:
         return np.zeros_like(pos)
     diff = pos[:, None, :] - wreck_pos[None, :, :]
     dist = norm(diff)
-    weight = np.where((dist < sense_range) & (dist > 1e-9), 1.0 - dist / sense_range, 0.0)
+    visible = (dist < sense_range) & (dist > 1e-9)
+    if detected is not None:
+        visible &= detected
+    weight = np.where(visible, 1.0 - dist / sense_range, 0.0)
     direction = diff / np.maximum(dist, 1e-9)[..., None]
     return (weight[..., None] * direction).sum(axis=1)
 
@@ -57,14 +64,15 @@ def hazard_tangent(world: World, pos: np.ndarray, direction: np.ndarray) -> np.n
 
 
 def avoidance(cfg: Config, pos: np.ndarray, wreck_pos: np.ndarray, field: RepellentField,
-              world: World) -> np.ndarray:
+              world: World, detected: np.ndarray | None = None,
+              maps: np.ndarray | None = None) -> np.ndarray:
     """Vector added to each robot's intended unit heading."""
     if cfg.controller == "C0":
         return np.zeros_like(pos)
     if cfg.controller == "C1":
-        return cfg.wreck_weight * wreck_repulsion(pos, wreck_pos, cfg.sense_range)
+        return cfg.wreck_weight * wreck_repulsion(pos, wreck_pos, cfg.sense_range, detected)
     if cfg.controller in ("C2", "C3"):
-        push = (cfg.wreck_weight * wreck_repulsion(pos, wreck_pos, cfg.sense_range)
+        push = (cfg.wreck_weight * wreck_repulsion(pos, wreck_pos, cfg.sense_range, detected)
                 - cfg.repel_weight * field.gradient(pos, cfg.sense_range))
         if cfg.controller == "C3":
             push = push / (1.0 + cfg.risk_k * items_in_view(pos, world.item_pos, cfg.sense_range))[:, None]

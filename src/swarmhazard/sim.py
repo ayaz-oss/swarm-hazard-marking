@@ -10,6 +10,7 @@ Each step, in order:
                         every robot also fails with probability `random_fail_rate`
   6. mark (MARKING)   - each robot that sees a wreck for the first time deposits
                         repellent on it; then the whole field decays
+  7. noise (E7)       - robots may miss wrecks in range, or mark wrecks that are not there
 """
 
 from __future__ import annotations
@@ -33,7 +34,7 @@ class Simulation:
         # numbers used anywhere else. Controllers then share randomness for
         # the whole run, not just until their first difference.
         (layout_rng, self.motion_rng, self.respawn_rng, self.hazard_rng,
-         self.background_rng) = rng.spawn(5)  # first four children are unchanged by the fifth
+         self.background_rng, self.noise_rng) = rng.spawn(6)  # earlier children unchanged by later ones
         self.world = make_world(cfg, layout_rng)
         self.swarm = make_swarm(cfg, layout_rng)
         self.field = RepellentField(cfg.arena_size, cfg.grid_cell)
@@ -47,9 +48,14 @@ class Simulation:
         self.picked_up = 0
         self.items_lost = 0  # carried by a robot when it failed
         self.first_loss_step = -1
+        self.false_sightings = 0
 
     def step(self) -> None:
         sw = self.swarm
+        n = len(sw.pos)
+        # Detection noise draws: a fixed number per step, whatever the robots are doing.
+        self._detected = self.noise_rng.random((n, n)) >= self.cfg.q_miss  # [i, j]: robot i detects wreck j
+        false_draw = self.noise_rng.random(n)
         alive = sw.alive.copy()
         searching = alive & (sw.state == SEARCH)
         returning = alive & (sw.state == RETURN)
@@ -61,6 +67,8 @@ class Simulation:
         self._fail(alive)
         if self.cfg.controller in MARKING:
             self._mark()
+        self._false_sightings(false_draw)
+        if self.cfg.controller in MARKING:
             self.field.decay(self.cfg.decay)
         self.t += 1
         if self.cfg.controller in MARKING and self.t % self.cfg.metric_every == 0:
@@ -81,8 +89,9 @@ class Simulation:
         v = self.nest - sw.pos
         sw.heading[returning] = np.arctan2(v[returning, 1], v[returning, 0])
 
-        wrecks = sw.pos[~sw.alive]
-        steer = unit(sw.heading) + avoidance(cfg, sw.pos, wrecks, self.field, self.world)
+        dead = np.flatnonzero(~sw.alive)
+        steer = unit(sw.heading) + avoidance(cfg, sw.pos, sw.pos[dead], self.field, self.world,
+                                             detected=self._detected[:, dead])
         sw.heading[:] = np.where(sw.alive, np.arctan2(steer[:, 1], steer[:, 0]), sw.heading)
 
     def _move(self, alive: np.ndarray) -> None:
@@ -157,12 +166,21 @@ class Simulation:
         if len(dead) == 0:
             return
         dist = norm(sw.pos[:, None, :] - sw.pos[None, dead, :])  # (N, D)
-        visible = sw.alive[:, None] & (dist < cfg.sense_range)
+        visible = sw.alive[:, None] & (dist < cfg.sense_range) & self._detected[:, dead]
         new = visible & ~self.seen[:, dead]
         for col in np.flatnonzero(new.any(axis=0)):
             amount = cfg.deposit_amount * new[:, col].sum()
             self.field.deposit(sw.pos[dead[col]], amount, cfg.deposit_sigma)
         self.seen[:, dead] |= visible
+
+    def _false_sightings(self, false_draw: np.ndarray) -> None:
+        """Robots that 'see' a non-existent wreck where they stand (E7 noise)."""
+        cfg, sw = self.cfg, self.swarm
+        phantom = sw.alive & (false_draw < cfg.q_false)
+        self.false_sightings += int(phantom.sum())
+        if cfg.controller in MARKING:
+            for i in np.flatnonzero(phantom):
+                self.field.deposit(sw.pos[i], cfg.deposit_amount, cfg.deposit_sigma)
 
     def result(self) -> dict:
         return {
@@ -173,6 +191,7 @@ class Simulation:
             "robots_lost": int((~self.swarm.alive).sum()),
             "first_loss_step": self.first_loss_step,
             "steps": self.t,
+            "false_sightings": self.false_sightings,
             "auc_final": self.auc_series[-1] if self.auc_series else float("nan"),
             "auc_mean": float(np.mean(self.auc_series)) if self.auc_series else float("nan"),
             "auc_series": ";".join(f"{a:.4f}" for a in self.auc_series),

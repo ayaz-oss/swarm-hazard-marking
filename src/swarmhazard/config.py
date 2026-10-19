@@ -45,6 +45,9 @@ class Config:
     hazards: tuple[tuple[float, float, float], ...] = ((8.81, 6.19, 1.0),)
     lethality: float = 0.02
     random_fail_rate: float = 0.0  # per robot per step, anywhere (E2 random-failure control)
+    # Detection noise (E7): miss probability per robot-wreck-step; false sighting per robot-step
+    q_miss: float = 0.0
+    q_false: float = 0.0
 
     # Controller and its weights
     controller: str = "C0"
@@ -69,8 +72,10 @@ class Config:
             for hx, hy, hr in self.hazards:
                 if math.hypot(px - hx, py - hy) < pr + hr:
                     raise ValueError(f"Patch at ({px}, {py}) overlaps hazard at ({hx}, {hy})")
-        if not 0.0 <= self.random_fail_rate <= 1.0:
-            raise ValueError(f"random_fail_rate must be in [0, 1], got {self.random_fail_rate}")
+        for name in ("random_fail_rate", "q_miss", "q_false"):
+            value = getattr(self, name)
+            if not 0.0 <= value <= 1.0:
+                raise ValueError(f"{name} must be in [0, 1], got {value}")
 
 
 def _freeze(value):

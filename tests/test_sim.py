@@ -205,3 +205,20 @@ def test_hazard_area_is_reported():
     r = run(Config(n_steps=1), make_rng("t", 0, 0))
     assert abs(r["hazard_area"] - math.pi) < 0.05
     assert run(Config(n_steps=1, hazards=()), make_rng("t", 0, 0))["hazard_area"] == 0.0
+
+
+def test_missed_wrecks_are_not_marked():
+    sim = new_sim(controller="C2", q_miss=1.0)
+    place_wreck_next_to_robot_0(sim)
+    sim.step()
+    assert sim.field.grid.max() == 0
+    assert not sim.seen[0, 1]
+
+
+@pytest.mark.parametrize("controller, deposits", [("C1", False), ("C2", True)])
+def test_false_sightings_mark_only_for_marking_controllers(controller, deposits):
+    sim = new_sim(controller=controller, q_false=1.0)
+    sim.step()
+    r = sim.result()
+    assert r["false_sightings"] == sim.cfg.n_robots
+    assert (sim.field.grid.max() > 0) == deposits

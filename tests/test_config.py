@@ -36,3 +36,9 @@ def test_hash_stable_and_sensitive():
     assert config_hash(Config()) == config_hash(Config())
     assert config_hash(Config()) != config_hash(Config(n_robots=21))
     assert len(config_hash(Config())) == 12
+
+
+@pytest.mark.parametrize("field, value", [("q_miss", -0.1), ("q_false", 1.5)])
+def test_noise_probabilities_validated(field, value):
+    with pytest.raises(ValueError):
+        Config(**{field: value})
