@@ -18,6 +18,7 @@ from __future__ import annotations
 import numpy as np
 
 from swarmhazard.config import Config
+from swarmhazard.geometry import norm
 from swarmhazard.pheromone import RepellentField
 from swarmhazard.world import World, in_hazard
 
@@ -29,7 +30,7 @@ def wreck_repulsion(pos: np.ndarray, wreck_pos: np.ndarray, sense_range: float) 
     if len(wreck_pos) == 0:
         return np.zeros_like(pos)
     diff = pos[:, None, :] - wreck_pos[None, :, :]
-    dist = np.linalg.norm(diff, axis=2)
+    dist = norm(diff)
     weight = np.where((dist < sense_range) & (dist > 1e-9), 1.0 - dist / sense_range, 0.0)
     direction = diff / np.maximum(dist, 1e-9)[..., None]
     return (weight[..., None] * direction).sum(axis=1)
@@ -38,14 +39,14 @@ def wreck_repulsion(pos: np.ndarray, wreck_pos: np.ndarray, sense_range: float) 
 def items_in_view(pos: np.ndarray, item_pos: np.ndarray, sense_range: float) -> np.ndarray:
     if len(item_pos) == 0:
         return np.zeros(len(pos), dtype=int)
-    dist = np.linalg.norm(pos[:, None, :] - item_pos[None, :, :], axis=2)
+    dist = norm(pos[:, None, :] - item_pos[None, :, :])
     return (dist < sense_range).sum(axis=1)
 
 
 def hazard_tangent(world: World, pos: np.ndarray, direction: np.ndarray) -> np.ndarray:
     """Unit vector along the edge of each robot's nearest hazard, on the side closer to `direction`."""
     diff = pos[:, None, :] - world.hazard_xy[None, :, :]
-    dist = np.linalg.norm(diff, axis=2)
+    dist = norm(diff)
     rows = np.arange(len(pos))
     nearest = dist.argmin(axis=1)
     radial = diff[rows, nearest] / np.maximum(dist[rows, nearest], 1e-9)[:, None]

@@ -1,7 +1,9 @@
 from pathlib import Path
 
 import numpy as np
+import yaml
 
+from swarmhazard.config import load_config
 from swarmhazard.experiment import build_cells, build_jobs, load_experiment, run_one
 from swarmhazard.provenance import provenance
 
@@ -52,3 +54,24 @@ def test_provenance_records_versions():
     p = provenance(ROOT)
     assert p["v_numpy"] == np.__version__
     assert {"git_commit", "python", "platform", "v_scipy", "v_pandas", "v_matplotlib", "v_pyyaml"} <= set(p)
+
+
+MAIN = ["E1", "E2", "E3", "E4", "E5"]
+
+
+def test_main_experiments_are_valid_and_use_tuned_parameters():
+    tuned = yaml.safe_load((ROOT / "configs" / "tuned_params.yaml").read_text())
+    for name in MAIN:
+        s = load_experiment(ROOT / "configs" / "experiments" / f"{name}.yaml", ROOT)
+        assert s["name"] == name
+        assert s["controllers"] == ["C0", "C1", "C2", "C3", "C4"]
+        assert s["seeds"] == 100
+        for key, value in tuned.items():
+            assert s["overrides"][key] == value
+        jobs = build_jobs(s)
+        for cell in sorted({j["cell"] for j in jobs}):
+            job = next(j for j in jobs if j["cell"] == cell)
+            load_config(ROOT / job["base"], **job["overrides"], controller=job["controller"])
+    e2 = build_cells(load_experiment(ROOT / "configs" / "experiments" / "E2.yaml", ROOT))
+    assert len(e2) == 4
+    assert e2[3]["hazards"] == [] and e2[3]["random_fail_rate"] > 0

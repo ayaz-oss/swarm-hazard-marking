@@ -186,3 +186,22 @@ def test_auc_recorded_only_for_marking_controllers():
     sim.swarm.pos[0] = [9.01, 6.19]   # an observer beside it
     sim.step()
     assert sim.result()["auc_final"] > 0.9
+
+
+def test_random_failures_occur_at_the_configured_rate():
+    sim = Simulation(Config(hazards=(), random_fail_rate=0.01, n_robots=2000), make_rng("t", 0, 0))
+    sim.step()
+    lost_fraction = 1.0 - sim.swarm.alive.mean()
+    assert abs(lost_fraction - 0.01) < 0.0067  # about 3 standard errors
+
+
+@pytest.mark.parametrize("rate", [-0.1, 1.5])
+def test_random_fail_rate_must_be_a_probability(rate):
+    with pytest.raises(ValueError):
+        Config(random_fail_rate=rate)
+
+
+def test_hazard_area_is_reported():
+    r = run(Config(n_steps=1), make_rng("t", 0, 0))
+    assert abs(r["hazard_area"] - math.pi) < 0.05
+    assert run(Config(n_steps=1, hazards=()), make_rng("t", 0, 0))["hazard_area"] == 0.0

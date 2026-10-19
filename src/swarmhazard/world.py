@@ -11,6 +11,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from swarmhazard.config import Config
+from swarmhazard.geometry import norm
 
 
 @dataclass
@@ -55,7 +56,7 @@ def respawn_item(world: World, idx: int, rng: np.random.Generator) -> None:
 def in_hazard(world: World, pos: np.ndarray) -> np.ndarray:
     if len(world.hazard_r) == 0:
         return np.zeros(len(pos), dtype=bool)
-    dist = np.linalg.norm(pos[:, None, :] - world.hazard_xy[None, :, :], axis=2)
+    dist = norm(pos[:, None, :] - world.hazard_xy[None, :, :])
     return (dist < world.hazard_r[None, :]).any(axis=1)
 
 

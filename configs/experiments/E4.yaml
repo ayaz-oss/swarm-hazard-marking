@@ -1,0 +1,8 @@
+# E4: lethality per step inside the hazard (spec section 4).
+name: E4
+base: configs/baseline.yaml
+controllers: [C0, C1, C2, C3, C4]
+seeds: 100
+overrides_file: configs/tuned_params.yaml
+grid:
+  lethality: [0.005, 0.02, 0.1, 1.0]

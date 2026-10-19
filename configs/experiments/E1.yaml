@@ -1,0 +1,6 @@
+# E1: main comparison at the baseline (spec section 4). Confirmatory H1, H2, H4.
+name: E1
+base: configs/baseline.yaml
+controllers: [C0, C1, C2, C3, C4]
+seeds: 100
+overrides_file: configs/tuned_params.yaml

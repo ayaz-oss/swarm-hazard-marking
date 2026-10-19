@@ -1,0 +1,80 @@
+{
+  "C0": {
+    "auc_final": NaN,
+    "auc_mean": NaN,
+    "auc_series": "",
+    "carrying": 1,
+    "delivered": 13,
+    "first_loss_step": 820,
+    "items_lost": 0,
+    "picked_up": 14,
+    "robots_lost": 2,
+    "state_digest": "1230244654553fd0548ba7074cbeea756fd4f81c4f9c0198b095b5c9846d083e",
+    "steps": 3000
+  },
+  "C1": {
+    "auc_final": NaN,
+    "auc_mean": NaN,
+    "auc_series": "",
+    "carrying": 1,
+    "delivered": 12,
+    "first_loss_step": 820,
+    "items_lost": 0,
+    "picked_up": 13,
+    "robots_lost": 2,
+    "state_digest": "630464f8d5047f818a8a6b64025f8de56e055a0c660d66a3a666eff688c74026",
+    "steps": 3000
+  },
+  "C2": {
+    "auc_final": 0.722101507173397,
+    "auc_mean": 0.5740338357244656,
+    "auc_series": "0.5000;0.5000;0.5000;0.5000;0.7221;0.7221",
+    "carrying": 1,
+    "delivered": 12,
+    "first_loss_step": 820,
+    "items_lost": 0,
+    "picked_up": 13,
+    "robots_lost": 1,
+    "state_digest": "9e41eaf96961604473c15958e79bfc58c0028cb6aa5f6c34f6c2ed48ce889e5c",
+    "steps": 3000
+  },
+  "C2_deadly": {
+    "auc_final": 0.7138722883629006,
+    "auc_mean": 0.5534680720907251,
+    "auc_series": "0.5000;0.5000;0.5000;0.5000;0.5000;0.5000;0.7139;0.7139",
+    "carrying": 2,
+    "delivered": 21,
+    "first_loss_step": 1826,
+    "items_lost": 0,
+    "picked_up": 23,
+    "robots_lost": 3,
+    "state_digest": "8b36a987f7c2f0c6873bccf570ef07911bfc9bfabc724c791dcc671dc5947798",
+    "steps": 4000
+  },
+  "C3": {
+    "auc_final": 0.8583302802711119,
+    "auc_mean": 0.6707623712896091,
+    "auc_series": "0.5000;0.5000;0.5000;0.5000;0.7221;0.7221;0.7221;0.7221;0.7221;0.7221;0.8582;0.8583",
+    "carrying": 1,
+    "delivered": 27,
+    "first_loss_step": 820,
+    "items_lost": 0,
+    "picked_up": 28,
+    "robots_lost": 2,
+    "state_digest": "cc12955af47e1e739139ed2aa07e986b61d0671dce80f2e88ff7a90a0fcf9204",
+    "steps": 6000
+  },
+  "C4": {
+    "auc_final": NaN,
+    "auc_mean": NaN,
+    "auc_series": "",
+    "carrying": 1,
+    "delivered": 14,
+    "first_loss_step": -1,
+    "items_lost": 0,
+    "picked_up": 15,
+    "robots_lost": 0,
+    "state_digest": "5bb5656c70acdae2d45f7796daaf3c84fef51c2fec590a79f0d75de9f5efda76",
+    "steps": 3000
+  }
+}

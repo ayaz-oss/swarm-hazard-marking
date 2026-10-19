@@ -1,0 +1,12 @@
+# E2: hazard placement (spec section 4; addendum section 2). Cell order is fixed:
+# the analysis treats cell 3 as the no-hazard random-failure control (H3).
+name: E2
+base: configs/baseline.yaml
+controllers: [C0, C1, C2, C3, C4]
+seeds: 100
+overrides_file: configs/tuned_params.yaml
+cells:
+  - {}                                          # 0: next to a patch (baseline)
+  - {hazards: [[6.25, 6.25, 1.0]]}               # 1: between patch and nest
+  - {hazards: [[5.0, 9.0, 1.0]]}                 # 2: far from everything
+  - {hazards: [], random_fail_rate: 0.0000266}   # 3: no hazard, random failures

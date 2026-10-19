@@ -44,6 +44,7 @@ class Config:
     # Hidden hazards: (x, y, radius); lethality = failure probability per step inside
     hazards: tuple[tuple[float, float, float], ...] = ((8.81, 6.19, 1.0),)
     lethality: float = 0.02
+    random_fail_rate: float = 0.0  # per robot per step, anywhere (E2 random-failure control)
 
     # Controller and its weights
     controller: str = "C0"
@@ -68,6 +69,8 @@ class Config:
             for hx, hy, hr in self.hazards:
                 if math.hypot(px - hx, py - hy) < pr + hr:
                     raise ValueError(f"Patch at ({px}, {py}) overlaps hazard at ({hx}, {hy})")
+        if not 0.0 <= self.random_fail_rate <= 1.0:
+            raise ValueError(f"random_fail_rate must be in [0, 1], got {self.random_fail_rate}")
 
 
 def _freeze(value):
