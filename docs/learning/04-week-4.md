@@ -25,9 +25,8 @@ E7: code 5d8ca9e (simulator changed; every golden case from fe78c66 reproduced b
 ```
 
 "Bit-identical" here means: every golden test case recorded at E1's commit
-gives exactly the same output at 5d8ca9e, and a separate differential check on
-six extra configurations also matched. That check was done on one machine only,
-so it supports "the old controllers behave the same in the new code", not a
+gives exactly the same output at 5d8ca9e. That check was done on one machine
+only, so it supports "the old controllers behave the same in the new code", not a
 claim across computers.
 
 **Detection noise.** Two new settings, `q_miss` and `q_false`:
@@ -41,7 +40,8 @@ claim across computers.
 Because misses are independent from step to step, a wreck that stays in range
 for k steps is missed the whole time with probability 0.2^k (for q_miss = 0.2).
 So the miss noise is **weak by construction**: mostly a short delay in noticing
-a wreck, plus roughly 20% weaker average repulsion from wrecks. It does not make
+a wreck, plus (an expectation from the design, not a measurement) roughly 20%
+weaker average repulsion from wrecks. It does not make
 robots blind to a wreck for long. With q_false = 1e-5 we expected about 2
 phantom sightings per 20-robot run; the realised mean is reported below.
 
@@ -91,25 +91,34 @@ tests in E6):
 - Median paired difference in items delivered is 0 at N = 5, 10, 20 and 40 and 0.5
   at N = 80; the median paired difference in robots lost is 0 at every size.
 - The A12 values (chance a C5 run beats a C2 run, 0.5 = no difference) for
-  delivered items are 0.497, 0.488, 0.477, 0.463 and 0.522 for N = 5 to 80; all
-  the CIs include 0.5 except N = 40 (0.463 [0.428, 0.498]), whose upper end only
-  just reaches 0.5.
+  delivered items are 0.497, 0.488, 0.477, 0.463 and 0.522 for N = 5 to 80. N = 40
+  (0.463 [0.428, 0.498]) is the only swarm size whose A12 CI excludes 0.5, and only
+  just; this is the same comparison as the raw p = 0.033 that does not survive
+  Holm (paired median-difference CI [-1.5, 0]).
 - The one raw p-value below 0.05 is N = 40 delivered (p = 0.033), which becomes
   Holm p = 0.33. Nothing survives correction.
 
-Plain reading: in this set-up, C5 and C2 are very close at every swarm size. The
-figure (`e6_sweep.png`) shows the two lines on top of each other for delivered
-items and for robots lost. The only visible gap is at N = 40 for robots lost
-(medians 3 against 2), but the CIs overlap and the paired median difference is 0.
+Plain reading: in this set-up, C5 showed no detectable difference from C2 after
+Holm correction at any swarm size (100 seeds per size). The figure
+(`e6_sweep.png`) shows the two lines on top of each other for delivered items and
+for robots lost. The only visible gap is at N = 40 for robots lost (medians 3
+against 2), but the CIs overlap, the paired median difference is 0 and the paired
+p is 0.82. The only comparison near significance was N = 40 delivered (medians 88
+against 87), not robots lost.
 Possible candidate explanations for the similarity (not tested): both mechanisms
 may spread the same information well enough over these distances, or the
 difference between them may be smaller than what 100 seeds can detect. I cannot
-tell these apart from this data, and the confound above means "no difference" is
-not a clean verdict on shared versus private maps either.
+tell these apart from this data, and the confound above means "no detectable
+difference" is not a clean verdict on shared versus private maps either.
 
-At N = 5 the AUC is exactly 0.5 for both controllers (and also for C2 in E3 at
-N = 5). I have not checked why; a candidate is that with 5 robots there is too
-little information to rank cells, but that is a guess to verify.
+At N = 5 the median AUC is exactly 0.5 for both controllers (and also for C2 in
+E3 at N = 5). This has been checked against the result files: at N = 5 only 30 of
+100 C2 runs and 26 of 100 C5 runs ever mark anything, because too few robots
+witness a loss, so most maps stay empty and the median is exactly 0.5. The counts
+of runs with at least one mark are 64 (C2) and 63 (C5) at N = 10, 98 and 98 at
+N = 20, and 100 and 100 at N = 40 and 80. So the N = 10 median of about 0.72 mixes
+roughly 36% unmarked runs (its lower quartile is 0.5). E3's C2 at N = 5 shows the
+same pattern (31 of 100 runs marked).
 
 ## 4. E7 results (exploratory): detection noise
 
@@ -122,7 +131,7 @@ are 1.81 (C0), 1.92 (C1), 1.93 (C2), 1.93 (C3); in the "both" cell 1.77, 1.83,
 1.82, 1.82. So about two per run, as intended. (C0 and C1 do not react to false
 sightings by design, so for them the number only says how many occurred.)
 
-**Medians with bootstrap 95% CIs by noise level (descriptive only).** The cells use
+**Medians by noise level (descriptive only; delivered rows show bootstrap 95% CIs).** The cells use
 different random layouts, so comparisons *across* noise levels are unpaired and are
 not covered by any pre-registered test. I report them as medians only and draw no
 tested conclusion from them.
@@ -164,13 +173,14 @@ a cell share seeds.
   A12 0.736 to 0.769, all Holm p below 1.4e-08 in the table).
 - C1 versus C2, delivered: only the "both" cell survives correction (median
   difference -2, A12 0.408, Holm p = 0.0067); the other three cells do not.
-- C3 versus C2: no difference in any cell (all Holm p equal 1.0, A12 between 0.494
-  and 0.506).
+- C3 versus C2: no detectable difference in any cell (all Holm p equal 1.0, A12
+  between 0.494 and 0.506).
 
-In other words, the ordering seen without noise (C2 and C3 lose fewer robots than
-C1, which loses fewer than C0) is still there in all three noisy cells. With noise this
-weak, that is not surprising and does not show the controllers are robust to
-stronger noise.
+In other words, C2 lost fewer robots than C1 and than C0 in every cell (tested), and
+C3 showed no detectable difference from C2. C1 losing fewer robots than C0 is a
+median comparison only (3 against 4 to 4.5); it was not tested, because only
+comparisons against C2 were tested. With noise this weak, the preserved pattern is
+not surprising and does not show the controllers are robust to stronger noise.
 
 ## 5. Replication checks
 
@@ -193,17 +203,21 @@ Suggested wording only, for discussion with your mentor:
 
 - The week-3 confirmatory results are unchanged. `confirmatory.csv`, regenerated
   this week, has identical values: H1 A12 = 0.6609, H2 A12 = 0.7894, H3 lower CI
-  bound = 0.5186, H4 Holm p = 0.1562.
+  bound = 0.5186, H4 Holm p = 0.1562. The verdicts are unchanged: H1, H2 and H3
+  supported; H4 not supported.
 - E6 and E7 are exploratory and should be labelled that way. They were defined
   before the analysis and the E6/E7 batch, and they changed no parameter after the
   results were seen. One clarification to the E6 confound was added on 2026-10-19
   after the batch started but before any data were examined; that dated note in
   `hypotheses.md` should be cited.
-- E6: in this set-up, private maps with local exchange (C5) performed about like
-  the shared field (C2) at every size. Say this together with the confound
+- E6: in this set-up, private maps with local exchange (C5) showed no
+  detectable difference from C2 after Holm correction at any swarm size (100 seeds
+  per size). Say this together with the confound
   (different combination rules; C5 untuned; swarm-level AUC), and do not word it as
   "shared and private maps are equivalent".
-- E7: with this weak noise, the controller ordering was preserved. Say plainly
+- E7: with this weak noise, C2 lost fewer robots than C1 and C0 in every cell,
+  and C3 showed no detectable difference from C2 (only comparisons against C2 were
+  tested). Say plainly
   that the noise is weak by construction, and do not claim robustness to
   detection noise in general. Cross-noise-level differences are unpaired and
   descriptive only.
@@ -217,8 +231,8 @@ Suggested wording only, for discussion with your mentor:
 2. Should E7 be repeated with stronger noise (for example, a higher `q_miss` or
    correlated misses) before the paper says anything about robustness? Would a
    paired design across noise levels (same layouts in every cell) be better?
-3. Why is AUC exactly 0.5 at N = 5, and does that make AUC uninformative at small
-   swarm sizes?
+3. Should AUC be reported only over runs with at least one mark, or with the
+   marked-run count alongside?
 4. The E7 cell-0 AUC for C2 (0.7545) sits below E1's (0.7956). Is seed-to-seed
    variation a sufficient explanation, or is it worth a check?
 5. The N = 40 delivered result (raw p = 0.033, Holm p = 0.33) is a typical
