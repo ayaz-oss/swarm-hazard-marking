@@ -77,6 +77,14 @@ def median_step(steps) -> int | float:
     return -1 if not np.isfinite(m) else (int(m) if m == int(m) else m)
 
 
+def step_gap(later, earlier) -> pd.Series:
+    """later - earlier per run; missing (None) where either step is -1 (never)."""
+    a, b = pd.Series(later, dtype="Int64"), pd.Series(earlier, dtype="Int64")
+    gap = (a - b).astype(object)
+    gap[(a < 0) | (b < 0)] = None
+    return gap
+
+
 def auc_curve(series_list, first_marks, first_losses, every: int) -> pd.DataFrame:
     a = np.asarray(series_list, float)
     steps = (np.arange(a.shape[1]) + 1) * every
@@ -162,6 +170,7 @@ def saturation(pool, ref: pd.DataFrame | None):
             "observed_death_frac": v["died"].mean(),
             "predicted_death_frac": predicted_death_fraction(natural, p),
             "mean_robots_lost": r["robots_lost"].mean(),
+            "lost_per_entrant": r["robots_lost"].sum() / r["robots_entered"].sum(),
             "e4_rows_compared": int(r[flags].notna().all(axis=1).sum()) if flags and p > 0 else 0,
             "e4_all_match": bool(r[flags].astype(bool).all().all()) if flags and p > 0 else None,
         })
@@ -189,6 +198,8 @@ def auc_delay(pool, ref: pd.DataFrame | None):
         rows.append(row)
         series.append(auc)
     runs = pd.DataFrame(rows)
+    runs["mark_after_loss_steps"] = step_gap(runs["first_mark_step"], runs["first_loss_step"])
+    runs["auc_after_mark_steps"] = step_gap(runs["first_auc_step"], runs["first_mark_step"])
     curve = auc_curve(series, runs["first_mark_step"], runs["first_loss_step"], AUC_EVERY)
     return runs, curve
 
@@ -218,8 +229,15 @@ def main(argv=None) -> int:
     print("\nAUC delay (C2, E1 streams, seeds 0-29, AUC every 10 steps):")
     for col in ("first_loss_step", "first_mark_step", "first_auc_step"):
         print(f"  median {col}: {_fmt(median_step(runs[col]))}")
+    for col in ("mark_after_loss_steps", "auc_after_mark_steps"):
+        g = runs[col].dropna().astype(float)
+        print(f"  {col} over {len(g)} runs: median {g.median():g}, IQR {g.quantile(0.25):g}-{g.quantile(0.75):g}, "
+              f"range {g.min():g}-{g.max():g}")
+    print(f"  runs never losing a robot: {int((runs['first_loss_step'] < 0).sum())}; "
+          f"never marked: {int((runs['first_mark_step'] < 0).sum())}")
     above = curve[curve["median_auc"] > 0.5]
-    print(f"  first 10-step sample with median AUC > 0.5: {_fmt(int(above['step'].iloc[0]) if len(above) else -1)}")
+    print(f"  first 10-step sample with median AUC > 0.5: {_fmt(int(above['step'].iloc[0]) if len(above) else -1)}"
+          + (f", fraction marked then {above['frac_marked'].iloc[0]:.4f}" if len(above) else ""))
     coarse = above[above["step"] % MAIN_EVERY == 0]
     print(f"  first 500-step sample with median AUC > 0.5: {_fmt(int(coarse['step'].iloc[0]) if len(coarse) else -1)}")
     half = curve[curve["frac_marked"] > 0.5]

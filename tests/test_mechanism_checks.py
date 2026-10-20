@@ -10,7 +10,7 @@ from swarmhazard.seeding import make_rng
 from swarmhazard.sim import run
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from mechanism_checks import (auc_curve, first_auc_step, median_step,  # noqa: E402
+from mechanism_checks import (auc_curve, first_auc_step, median_step, step_gap,  # noqa: E402
                               predicted_death_fraction, trace_run, visits_from_trace)
 
 
@@ -64,3 +64,7 @@ def test_trace_run_only_observes():
         assert died[result["first_loss_step"]].any() and not died[:result["first_loss_step"]].any()
     assert first_mark == -1 or first_mark >= result["first_loss_step"] >= 0
     assert len(auc) == 150 and not math.isnan(auc[0])
+
+
+def test_step_gap_is_missing_when_either_event_never_happened():
+    assert list(step_gap([30, 50, -1], [10, -1, 5])) == [20, None, None]
