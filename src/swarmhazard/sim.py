@@ -1,6 +1,7 @@
 """One simulation run.
 
 Each step, in order:
+  0. hazard move (E8) - at hazard_move_step the hazards are replaced
   1. choose headings  - searchers random-walk or head for a visible item;
                         returners head for the nest; the controller bends headings
   2. move             - walls bounce robots; the oracle slides along hazard edges
@@ -19,13 +20,13 @@ from __future__ import annotations
 import numpy as np
 
 from swarmhazard.config import Config
-from swarmhazard.controllers import MARKING, PERSONAL, avoidance, blocks_move, hazard_tangent
+from swarmhazard.controllers import MAPPED, MARKING, PERSONAL, avoidance, blocks_move, hazard_tangent
 from swarmhazard.geometry import norm
 from swarmhazard.metrics import field_auc, hazard_mask
 from swarmhazard.noise import next_blind
 from swarmhazard.pheromone import RepellentField
 from swarmhazard.robots import RETURN, SEARCH, make_swarm, unit
-from swarmhazard.world import hazard_failures, in_hazard, make_world, respawn_item
+from swarmhazard.world import hazard_failures, in_hazard, make_world, respawn_item, set_hazards
 
 
 class Simulation:
@@ -54,8 +55,13 @@ class Simulation:
         self.first_loss_step = -1
         self.false_sightings = 0
         self._blind = None  # E7b: per-pair blind state for correlated misses
+        self.first_loss_post_step = -1  # E8
+        self._pre = None
+        self._old_mask = None
 
     def step(self) -> None:
+        if self.t == self.cfg.hazard_move_step:
+            self._move_hazard()
         sw = self.swarm
         n = len(sw.pos)
         # Detection noise draws: a fixed number per step, whatever the robots are doing.
@@ -87,8 +93,20 @@ class Simulation:
         self.t += 1
         if self.cfg.controller in PERSONAL and self.t % self.cfg.share_every == 0:
             self._share()
-        if self.cfg.controller in (MARKING | PERSONAL) and self.t % self.cfg.metric_every == 0:
+        if self.cfg.controller in MAPPED and self.t % self.cfg.metric_every == 0:
             self.auc_series.append(field_auc(self._map_for_metrics(), self.hazard_mask))
+
+    def _move_hazard(self) -> None:
+        """E8: the hazard moves; wrecks and marks stay where they are."""
+        mapped = self.cfg.controller in MAPPED
+        self._pre = {
+            "delivered_pre": self.delivered,
+            "lost_pre": int((~self.swarm.alive).sum()),
+            "auc_pre": field_auc(self._map_for_metrics(), self.hazard_mask) if mapped else float("nan"),
+        }
+        self._old_mask = self.hazard_mask
+        set_hazards(self.world, self.cfg.hazards_after)
+        self.hazard_mask = hazard_mask(self.world, self.field)
 
     def _map_for_metrics(self) -> np.ndarray:
         if self.maps is None:
@@ -123,7 +141,7 @@ class Simulation:
         new = sw.pos + step * unit(sw.heading)
         hit_wall = ((new < 0) | (new > cfg.arena_size)).any(axis=1)
         new = np.clip(new, 0.0, cfg.arena_size)
-        blocked = blocks_move(cfg, world, new)
+        blocked = blocks_move(cfg, world, new, sw.pos)
         if blocked.any():
             # The oracle slides along the hazard edge instead of stepping in.
             slide = np.clip(sw.pos + step * hazard_tangent(world, sw.pos, unit(sw.heading)),
@@ -181,6 +199,8 @@ class Simulation:
             sw.alive[dies] = False  # a carried item is lost with the robot
             if self.first_loss_step < 0:
                 self.first_loss_step = self.t
+            if 0 <= self.cfg.hazard_move_step <= self.t and self.first_loss_post_step < 0:
+                self.first_loss_post_step = self.t
 
     def _new_sightings(self):
         """(dead indices, visible[N, D], new[N, D]) for this step's wreck detections."""
@@ -244,7 +264,7 @@ class Simulation:
                     self.maps[i, sx, sy] += values
 
     def result(self) -> dict:
-        return {
+        out = {
             "delivered": self.delivered,
             "picked_up": self.picked_up,
             "items_lost": self.items_lost,
@@ -258,6 +278,17 @@ class Simulation:
             "auc_series": ";".join(f"{a:.4f}" for a in self.auc_series),
             "hazard_area": float(self.hazard_mask.sum() * self.cfg.grid_cell ** 2),
         }
+        if self.cfg.hazard_move_step >= 0:
+            pre = self._pre or {"delivered_pre": self.delivered, "lost_pre": out["robots_lost"],
+                                "auc_pre": float("nan")}
+            moved = self._old_mask is not None and self.cfg.controller in MAPPED
+            out.update(pre)
+            out["delivered_post"] = self.delivered - pre["delivered_pre"]
+            out["lost_post"] = out["robots_lost"] - pre["lost_pre"]
+            out["first_loss_post_step"] = self.first_loss_post_step
+            out["auc_old_final"] = (field_auc(self._map_for_metrics(), self._old_mask)
+                                    if moved else float("nan"))
+        return out
 
 
 def run(cfg: Config, rng: np.random.Generator) -> dict:

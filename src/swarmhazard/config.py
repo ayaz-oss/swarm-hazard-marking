@@ -44,6 +44,9 @@ class Config:
     # Hidden hazards: (x, y, radius); lethality = failure probability per step inside
     hazards: tuple[tuple[float, float, float], ...] = ((8.81, 6.19, 1.0),)
     lethality: float = 0.02
+    # Hazard move (E8): at the start of step hazard_move_step the hazards become hazards_after
+    hazard_move_step: int = -1  # -1 = never
+    hazards_after: tuple[tuple[float, float, float], ...] = ()
     random_fail_rate: float = 0.0  # per robot per step, anywhere (E2 random-failure control)
     # Detection noise (E7): miss probability per robot-wreck-step; false sighting per robot-step
     q_miss: float = 0.0
@@ -72,9 +75,13 @@ class Config:
             raise ValueError(f"Unknown controller {self.controller!r}; expected one of {KNOWN_CONTROLLERS}")
         # Items inside a hazard would make the oracle's task ill-defined.
         for px, py, pr, _ in self.patches:
-            for hx, hy, hr in self.hazards:
+            for hx, hy, hr in self.hazards + self.hazards_after:
                 if math.hypot(px - hx, py - hy) < pr + hr:
                     raise ValueError(f"Patch at ({px}, {py}) overlaps hazard at ({hx}, {hy})")
+        if self.hazard_move_step < -1:
+            raise ValueError(f"hazard_move_step must be >= -1, got {self.hazard_move_step}")
+        if self.hazards_after and self.hazard_move_step < 0:
+            raise ValueError("hazards_after needs hazard_move_step >= 0")
         for name in ("random_fail_rate", "q_miss", "q_false"):
             value = getattr(self, name)
             if not 0.0 <= value <= 1.0:

@@ -28,6 +28,8 @@ patches:
 hazards:
   - [8.81, 6.19, 1.0]
 lethality: 0.02           # failure probability per step inside a hazard
+hazard_move_step: -1      # E8: step at which the hazards become hazards_after; -1 = never
+hazards_after: []         # E8: [x, y, radius] after the move
 random_fail_rate: 0.0     # per robot per step, anywhere; E2's no-hazard control only
 q_miss: 0.0               # E7: chance per step that a robot misses a wreck in range
 q_false: 0.0              # E7: chance per step that a robot sees a wreck that is not there

@@ -317,3 +317,71 @@ def test_c5_maps_decay_and_false_sightings_go_into_own_map():
     sim2.maps[0, 50, 50] = 1.0
     sim2.step()
     assert sim2.maps[0, 50, 50] == pytest.approx(1.0 - sim2.cfg.decay)
+
+
+MOVE = dict(hazard_move_step=300, hazards_after=((1.19, 3.81, 1.0),))
+
+
+def stepped(n, **kw):
+    sim = new_sim(**kw)
+    for _ in range(n):
+        sim.step()
+    return sim
+
+
+def test_hazard_moves_at_the_given_step():
+    sim = stepped(300, controller="C2", lethality=0.2, **MOVE)
+    assert sim.world.hazard_xy.tolist() == [[8.81, 6.19]]
+    sim.step()
+    assert sim.world.hazard_xy.tolist() == [[1.19, 3.81]]
+    assert sim.hazard_mask[11, 38] and not sim.hazard_mask[88, 61]
+
+
+def test_moving_to_the_same_place_changes_nothing():
+    a = stepped(600, controller="C2", lethality=0.2)
+    b = stepped(600, controller="C2", lethality=0.2, hazard_move_step=300, hazards_after=((8.81, 6.19, 1.0),))
+    assert np.array_equal(a.swarm.pos, b.swarm.pos) and np.array_equal(a.field.grid, b.field.grid)
+    ra, rb = a.result(), b.result()
+    assert all(ra[k] == rb[k] for k in ra if k != "auc_series" and not (isinstance(ra[k], float) and math.isnan(ra[k])))
+
+
+def test_pre_and_post_add_up_and_auc_pre_is_the_sample_at_the_move():
+    sim = stepped(2000, controller="C2", lethality=1.0, hazards=((9.0, 5.0, 1.0),),
+                  hazard_move_step=1000, hazards_after=((1.19, 3.81, 1.0),), metric_every=500)
+    r = sim.result()
+    assert r["delivered_pre"] + r["delivered_post"] == r["delivered"]
+    assert r["lost_pre"] + r["lost_post"] == r["robots_lost"]
+    assert r["auc_pre"] == pytest.approx(sim.auc_series[1])
+    assert not math.isnan(r["auc_old_final"])
+
+
+def test_controllers_without_a_map_report_nan_auc_pre():
+    r = stepped(400, controller="C0", lethality=0.2, **MOVE).result()
+    assert math.isnan(r["auc_pre"]) and math.isnan(r["auc_old_final"])
+
+
+def test_no_move_keys_without_a_move():
+    assert "delivered_pre" not in stepped(10, controller="C2").result()
+
+
+def test_first_loss_after_the_move():
+    sim = new_sim(controller="C0", lethality=1.0, hazard_move_step=5, hazards_after=((1.19, 3.81, 1.0),))
+    for _ in range(5):
+        sim.step()
+    sim.swarm.pos[0] = [1.19, 3.81]
+    sim.step()
+    assert sim.result()["first_loss_post_step"] == 5
+
+
+def test_oracle_escapes_a_hazard_that_appears_on_top_of_it():
+    # Robots start in the nest; a hazard appears over the nest at step 1.
+    sim = new_sim(controller="C4", lethality=0.0, hazard_move_step=1, hazards_after=((5.0, 5.0, 1.0),))
+    sim.step()
+    sim.step()
+    from swarmhazard.world import in_hazard
+    inside = [int(in_hazard(sim.world, sim.swarm.pos).sum())]
+    for _ in range(200):
+        sim.step()
+        inside.append(int(in_hazard(sim.world, sim.swarm.pos).sum()))
+    assert inside[0] > 0 and inside[-1] == 0
+    assert all(b <= a for a, b in zip(inside, inside[1:]))  # once out, never back in
