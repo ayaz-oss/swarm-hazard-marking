@@ -175,7 +175,12 @@ WEEK5 = {
 # Runs that must be identical across paired cells (reported, not tested).
 IDENTITIES = {"E7b": [("C0", (0, 1, 2, 3, 4, 5)), ("C1", (0, 5))],
               "E8": [("C0", (1, 2)), ("C1", (1, 2)), ("C4", (1, 2))]}
-IDENTITY_COLS = ("delivered", "robots_lost", "first_loss_step", "picked_up")
+# Every behavioural outcome column. false_sightings is deliberately left out: it counts noise
+# events (phantoms are counted even by controllers that ignore them, e.g. C0 in E7b cell 5),
+# not behaviour.
+IDENTITY_COLS = ("delivered", "robots_lost", "first_loss_step", "picked_up", "items_lost", "carrying",
+                 "steps", "auc_final", "delivered_pre", "lost_pre", "delivered_post", "lost_post",
+                 "first_loss_post_step")
 
 
 def pairwise(df, pairs, metrics, rng, n_boot=N_BOOT) -> pd.DataFrame:
@@ -226,8 +231,9 @@ def _marked(series) -> bool:
 def week5_descriptive(df, rng, n_boot=N_BOOT) -> pd.DataFrame:
     """descriptive() plus marked-run counts and the week-5 columns that exist in df."""
     base = descriptive(df, rng, n_boot)
-    extra_cols = [c for c in ("delivered_pre", "lost_pre", "delivered_post", "lost_post",
-                              "auc_pre", "auc_old_final", "known_frac") if c in df]
+    extra_cols = [c for c in ("auc_final", "false_sightings", "delivered_pre", "lost_pre",
+                              "delivered_post", "lost_post", "auc_pre", "auc_old_final",
+                              "known_frac") if c in df]
     rows = []
     for (cell, controller), sub in df.groupby(["cell", "controller"]):
         row = {"cell": int(cell), "controller": controller}
@@ -236,21 +242,28 @@ def week5_descriptive(df, rng, n_boot=N_BOOT) -> pd.DataFrame:
         idx = rng.integers(0, len(sub), size=(n_boot, len(sub)))
         for col in extra_cols:
             values = sub[col].to_numpy(float)
+            row[f"{col}_n"] = int((~np.isnan(values)).sum())
             if np.isnan(values).all():
                 row[f"{col}_median"] = row[f"{col}_lo"] = row[f"{col}_hi"] = float("nan")
                 continue
-            row[f"{col}_median"] = float(np.nanmedian(values))
-            row[f"{col}_lo"], row[f"{col}_hi"] = _ci(np.nanmedian(values[idx], axis=1))
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN bootstrap resamples
+                row[f"{col}_median"] = float(np.nanmedian(values))
+                row[f"{col}_lo"], row[f"{col}_hi"] = _ci(np.nanmedian(values[idx], axis=1))
         rows.append(row)
-    return base.merge(pd.DataFrame(rows), on=["cell", "controller"])
+    extra = pd.DataFrame(rows)
+    # auc_final_median is replaced by the version with a CI
+    base = base.drop(columns=[c for c in base if c in extra and c not in ("cell", "controller")])
+    return base.merge(extra, on=["cell", "controller"])
 
 
 def identity_checks(name, df) -> pd.DataFrame:
     rows = []
     for controller, cells in IDENTITIES.get(name, []):
         sub = df[df["controller"] == controller]
-        ref = sub[sub["cell"] == cells[0]].set_index("seed").sort_index()[list(IDENTITY_COLS)]
-        same = all(sub[sub["cell"] == k].set_index("seed").sort_index()[list(IDENTITY_COLS)].equals(ref)
+        cols = [c for c in IDENTITY_COLS if c in df]
+        ref = sub[sub["cell"] == cells[0]].set_index("seed").sort_index()[cols]
+        same = all(sub[sub["cell"] == k].set_index("seed").sort_index()[cols].equals(ref)
                    for k in cells[1:])
         rows.append({"experiment": name, "controller": controller,
                      "cells": " ".join(map(str, cells)), "identical": bool(same)})

@@ -34,6 +34,9 @@ def provenance_problems(name: str, df: pd.DataFrame) -> list[str]:
     commits = sorted(set(df["git_commit"].astype(str)))
     if len(commits) != 1 or commits[0].endswith("-dirty") or commits[0] == "unknown":
         return [f"{name}: git_commit values {commits} are not one clean commit"]
+    if "package_root" in df and df["package_root"].astype(str).nunique() != 1:
+        return [f"{name}: package_root must hold a single value, found "
+                f"{sorted(set(df['package_root'].astype(str)))}"]
     c = commits[0]
     try:
         same = golden_unchanged(_golden_at(E1_COMMIT, ROOT), _golden_at(c, ROOT))
