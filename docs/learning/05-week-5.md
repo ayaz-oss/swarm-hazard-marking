@@ -194,8 +194,9 @@ Suggested wording only, for discussion with your mentor:
 
 Everything from here on is **exploratory**. E6b, E7b and E8 were pre-registered as
 exploratory experiments in the last section of `docs/hypotheses.md` ("Week-5
-experiments"). That section was approved as committed at 37bf380 on 2026-10-20,
-before any E6b, E7b or E8 data existed. There are no confirmatory hypotheses, so no
+experiments"). That section was added at 85625f8 and finalised (a wording
+clarification) at 37bf380, both before any E6b, E7b or E8 data existed, and it was
+approved on 2026-10-20. There are no confirmatory hypotheses, so no
 p-value below is a confirmatory result, and the explanations I give are candidates
 unless the numbers show them directly.
 
@@ -222,8 +223,9 @@ workers (from `results/week5_batch.out`):
 | E8 | C0, C1, C2, C4 | 3 cells (static; moved with tuned decay; moved with fast decay), paired | 1,200 | 940 s |
 
 That is 5,100 runs of 10,000 steps, 100 seeds per cell, and every row in the three
-CSVs carries commit 37bf380. The provenance check in the analysis printed "every
-golden case from fe78c66 reproduced bit-identically" for each experiment, which means
+CSVs carries commit 37bf380. The provenance check in the analysis
+(`results/analysis/week5/analyse_week5.log`) says "code 37bf380 (every golden case
+from fe78c66 reproduced bit-identically)" for each of E6b, E7b and E8, which means
 the old controllers C0–C5 behave exactly as at E1's commit when the new features are
 off. As in week 4, this was checked on one machine only.
 
@@ -278,9 +280,12 @@ everything, i.e. C6's maps equal C2's field). Only runs with at least one record
 have a value (`known_frac_n`): 22 runs at N = 5, 61 at 10, 94 at 20, 100 at 40 and 80.
 Medians [CI]: 0.75 [0.5, 1.0] at N = 5, 1.0 [0.857, 1.0] at 10, 1.0 at 20 and 40,
 0.9968 [0.9957, 1.0] at 80. The means, which I computed from `E6b.csv` because they are
-not in the table, are lower: 0.708, 0.749, 0.918, 0.941 and 0.958. So in most runs
-from N = 10 up the information spread almost completely, but in some runs it did not
-(at N = 10 only 32% of the runs with records reached exactly 1.0).
+not in the table, are lower: 0.708, 0.749, 0.918, 0.941 and 0.958. The share of runs
+with records in which every live robot knew every record (exactly 1.0) was 45%, 52%,
+72%, 63% and 49% for N = 5 to 80. So from N = 10 up, about half or more of the runs
+reached full spread (which is why the median is 1.0, or 0.997 at N = 80), and most of
+the rest came close, but in some runs the spread was clearly incomplete (the means are
+pulled down by them, most at N = 10).
 
 **Tested comparisons** (`E6b_tests.csv`; paired Wilcoxon, Holm over all 30 tests in
 E6b). Nothing survives Holm. The smallest Holm p is 0.4292, for robots lost at N = 10,
@@ -299,11 +304,11 @@ showed no detectable difference from C2 (one shared field) at any swarm size, an
 detectable difference from C5 either (100 seeds per size). This is not a finding of
 equivalence; it only says that 100 seeds did not detect a difference.
 
-**Candidate explanation.** Because C6's information spread almost fully in most runs,
-C6 was, most of the time, close to *being* C2. So C6 ≈ C2 is what you would expect.
-The test therefore mostly says that, in this arena with 1 m communication, local
-passing-on is fast enough that where the information is held barely matters. It does
-not tell us what happens when the information does *not* spread.
+**Candidate explanation** (not tested). Because C6's information spread fully or
+nearly fully in many runs, C6 was often close to *being* C2, so finding no detectable
+difference between C6 and C2 is what this candidate explanation predicts. It does not
+show that the medium is irrelevant, and it does not tell us what happens when the
+information does *not* spread.
 
 **What it means for the E6 confound.** Week 4 could not say whether C5 ≈ C2 was
 because the medium does not matter or because the combination rule hid a difference.
@@ -416,8 +421,8 @@ p = 0.1303, cell 4).
 I want to be careful about the size of the cell-4 effect. The medians are equal and the
 paired median difference is 0, so on most seeds C2 lost the same number of robots as
 without noise. The A12 of about 0.60 says that when the two differ, the noisy run more
-often lost more. That is a small shift, much smaller than C1's (A12 0.6948, paired
-median difference 1).
+often lost more. That is a small shift, smaller than C1's (A12 0.6948, paired median
+difference 1; a descriptive comparison, not tested).
 
 **Plain reading.** In these runs, strong or correlated misses made C1 lose more robots
 (tested), while C2 and C3 delivered no detectably different numbers of items and lost
@@ -493,9 +498,10 @@ What the numbers show directly, for these 20 seeds:
 - Robots spend a lot of time near the nest: in a, 75,669 robot-steps out of at most
   200,000 (20 robots × 10,000 steps), about 38%, in that 7% disc. With false
   sightings (b) this falls to 55,269.5 (lower on 18 of 20 seeds).
-- The gain needs the steering: with `repel_weight` = 0 (c) there is no gain (42.5
-  against 43) and the time near the nest barely changes.
-- The gain does not need the hazard: d gains about as much over e as b over a.
+- Without steering (c, `repel_weight` = 0) there was no gain (42.5 against 43), and
+  the time near the nest barely changed.
+- Without the hazard (d vs e) a similar gain appeared (median paired difference 9,
+  against 12 for b vs a).
 
 **Candidate explanation.** A phantom happens where a robot is, and robots are mostly
 near the nest, so most phantom repellent sits around the nest. That repellent pushes
@@ -506,16 +512,19 @@ did not measure crowding or trip times.
 
 **What I want to be honest about:**
 
-- This is a property of our foraging model (robots linger and crowd near the nest),
-  not evidence that detection noise is good. A version of the model where robots
-  leave the nest efficiently would probably not show it.
+- If the candidate explanation is right, this would be a property of our foraging
+  model (robots lingering and possibly crowding near the nest), not evidence that
+  detection noise is good. A version of the model where robots leave the nest
+  efficiently might not show it.
 - It may matter for the E2 random-failure control. There, robots fail at random places,
   and wrecks near the nest would also be marked by C2, which might push robots out of
   the nest area in the same way. This is a question for my mentor, not a claim: I have
   not checked where E2's random wrecks were.
 - C2's localisation AUC drops in this cell (median 0.6179 against 0.7645 with no
-  noise), because the map now has marks away from the hazard, so it is no longer only
-  a map of the hazard. Higher deliveries came with a worse map.
+  noise). That is consistent with the map now holding marks away from the hazard
+  (in the diagnostic, about 28% of C2's final field lay within 1.5 m of the nest,
+  20 seeds), but I did not show that this is the cause. Higher deliveries came with a
+  worse map.
 - The diagnostic has 20 seeds and only C2, and was designed after seeing the E7b
   result. It describes; it does not test.
 
@@ -586,25 +595,27 @@ at every sample from 550 s to 700 s, then 0.6939 at 750 s, rising to **0.7222** 
 from 550 to 700 s, 0.6833 at 750 s, 0.7196 at 1000 s. For comparison, the static cell
 ends at 0.7676.
 
-Why the median dips just below 0.5: right after the move, the only marks are around
-the old wrecks, which are now on safe cells, so against the new hazard the marked
-cells rank as *less* likely to be hazard than the unmarked ones (73 of 100 runs are
-below 0.5 at 550 s in cell 1). It recovers once robots die at the new position and
-those wrecks get marked.
+Candidate explanation for the dip just below 0.5 (I did not measure when the new
+marks appeared): right after the move, the only marks are around the old wrecks, which
+are now on safe cells, so against the new hazard the marked cells rank as *less*
+likely to be hazard than the unmarked ones (73 of 100 runs are below 0.5 at 550 s in
+cell 1; that number is measured). The AUC would then recover once robots die at the
+new position and those wrecks get marked.
 
 The final map against the *old* hazard (`auc_old_final`, how much stale information
 is left) is 0.7441 [0.7165, 0.7635] with tuned decay and 0.7530 [0.7307, 0.7755] with
 fast decay, so the old hazard is still "visible" in the map at 1000 s in both.
 
-**Why the two decay curves overlap.** The AUC is rank-based: it only asks whether
+**Why the two decay curves overlap: a candidate explanation from reading the code,
+not tested.** The AUC is rank-based: it only asks whether
 hazard cells score higher than other cells. Decay multiplies every deposit by the same
 factor each step, so it shrinks the whole field without changing the order of cells
 made by deposits of the same age. Faster decay mostly makes old and new deposits differ
 more in strength, and that hardly changes the ranking here. What fast decay does change
 is how *strongly* the field pushes robots, because steering uses the gradient, not the
 ranking. With fast decay the old marks should push less after 35 s or so; but that did
-not turn into a detectable difference in losses or deliveries. (This last point is my
-reading of how the code works, not something I measured.)
+not turn into a detectable difference in losses or deliveries. (None of this
+paragraph was measured.)
 
 **Caveats.**
 
@@ -623,43 +634,46 @@ reading of how the code works, not something I measured.)
 
 Suggested wording only, for discussion with my mentor. Everything here is exploratory
 and should be labelled that way, citing the dated week-5 section of `hypotheses.md`
-(approved at 37bf380 before any data existed). The confirmatory results from week 3 are
+(added at 85625f8, finalised at 37bf380, both before any data existed). The confirmatory results from week 3 are
 not touched.
 
 - **E6 / E6b.** "In a follow-up that changes one factor at a time, C6 (private record
   copies shared with neighbours, otherwise identical to C2) showed no detectable
   difference from C2 or from C5 at any swarm size after Holm correction (100 seeds per
-  size). In most runs the records spread to nearly every robot (median fraction known
-  between 0.997 and 1.0 for N ≥ 10), so this mainly shows that, in our 10 m arena with 1 m communication,
-  local sharing was fast enough that where the information was held made no detectable
-  difference." Keep: C5 untuned; one arena size and range; never "equivalent".
+  size). A likely reason (not tested) is that the records spread to nearly every
+  robot in most runs (median fraction known 0.997–1.0, means 0.75–0.96 for N ≥ 10) in
+  our 10 m arena with 1 m communication." Keep: C5 untuned; one arena size and range; never "equivalent".
 - **E7 / E7b.** "With stronger and correlated misses on the same layouts, C2 still lost
   fewer robots than C0 and C1 in every cell, and C3 showed no detectable difference from
-  C2. C1's losses rose with strong or correlated misses; C2's deliveries showed no
-  detectable change and its losses shifted slightly (A12 0.60) only with 80% misses in
+  C2. C1's losses rose with strong or correlated misses; in the miss cells (1–4) C2's
+  deliveries showed no detectable change and its losses shifted slightly (A12 0.60) only with 80% misses in
   10 s spells." Do not claim robustness in general.
 - **False sightings.** Report the cell-5 rise plainly, with the AUC drop, and describe
   the diagnostic as a small, non-pre-registered, descriptive check whose candidate
-  explanation is a property of the foraging model (robots crowd at the nest), not a
-  benefit of noise.
+  candidate explanation, if right, would make it a property of the foraging model
+  (robots lingering and possibly crowding near the nest), not a benefit of noise.
 - **E8.** "When the hazard moved half-way through, C2 lost more robots than when it
-  stayed (median 2 vs 0 after the move), but still fewer than C0. The map relearned the
-  new position (median AUC from just below 0.5 straight after the move to 0.72 at the
-  end). A tenfold faster decay showed no detectable difference on any of the four tested
+  stayed (median 2 vs 0 after the move), but still fewer than C0. The map partly
+  relearned the new position (median AUC against the new hazard from just below 0.5
+  straight after the move to 0.722 at the end, below the static cell's 0.768), while
+  the old position was still visible in the map (median AUC against the old hazard at
+  the end 0.744). A tenfold faster decay showed no detectable difference on any of the four tested
   metrics." Add the "marked runs" caveat and fix the figure caption.
 
 ## 8. Things to check with your mentor
 
-1. The E7b cell-5 result is the largest effect in week 5, and its diagnostic was
+1. The E7b cell-5 result is the largest cross-cell change in E7b, and its diagnostic was
    designed after seeing it. How should it go in the paper: as a reported surprise with
    a candidate explanation, or should the diagnostic be repeated with more seeds as a
    pre-registered check?
 2. Could the same nest-area effect affect the E2 random-failure control (random wrecks
    near the nest also get marked by C2)? Is it worth checking where E2's random wrecks
    were, and how much of C2's E2 field was near the nest?
-3. Is the "robots crowd near the nest" behaviour a flaw in the foraging model that the
+3. Is the possible crowding near the nest (robots linger there; crowding itself was
+   not measured) a flaw in the foraging model that the
    paper should mention as a limitation, separate from E7b?
-4. E6b's null result mostly reflects that the information spread almost fully. Is it
+4. E6b's null result may reflect that the information spread fully or nearly fully in
+   most runs (a candidate, not tested). Is it
    worth one extra run with a shorter communication range (or a bigger arena), where
    C6 would not spread fully, or is that out of scope?
 5. In E7b, how should a shift with equal medians and paired median difference 0 but A12
