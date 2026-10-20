@@ -48,6 +48,7 @@ class Config:
     # Detection noise (E7): miss probability per robot-wreck-step; false sighting per robot-step
     q_miss: float = 0.0
     q_false: float = 0.0
+    miss_run: float = 0.0  # E7b: mean blind-spell length in steps for correlated misses; 0 = independent
 
     # Controller and its weights
     controller: str = "C0"
@@ -78,6 +79,14 @@ class Config:
             value = getattr(self, name)
             if not 0.0 <= value <= 1.0:
                 raise ValueError(f"{name} must be in [0, 1], got {value}")
+        if self.miss_run < 0:
+            raise ValueError(f"miss_run must be >= 0, got {self.miss_run}")
+        if self.miss_run > 0:
+            if self.miss_run < 1 or self.q_miss >= 1:
+                raise ValueError("correlated misses need miss_run >= 1 and q_miss < 1")
+            # Tolerance: 0.8 / (4 * 0.2) evaluates to 1 + 2e-16 in floating point.
+            if self.q_miss / (self.miss_run * (1 - self.q_miss)) > 1 + 1e-12:
+                raise ValueError(f"miss_run must be >= q_miss / (1 - q_miss), got {self.miss_run}")
         if self.share_every < 1:
             raise ValueError(f"share_every must be >= 1, got {self.share_every}")
         if self.comm_range < 0:

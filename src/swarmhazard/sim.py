@@ -10,7 +10,8 @@ Each step, in order:
                         every robot also fails with probability `random_fail_rate`
   6. mark            - MARKING: deposit on the shared field; PERSONAL (C5): on the observer's
                         own map; maps decay; C5 robots exchange maps every share_every steps
-  7. noise (E7)       - robots may miss wrecks in range, or mark wrecks that are not there
+  7. noise (E7)       - robots may miss wrecks in range (correlated spells if miss_run > 0),
+                        or mark wrecks that are not there
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from swarmhazard.config import Config
 from swarmhazard.controllers import MARKING, PERSONAL, avoidance, blocks_move, hazard_tangent
 from swarmhazard.geometry import norm
 from swarmhazard.metrics import field_auc, hazard_mask
+from swarmhazard.noise import next_blind
 from swarmhazard.pheromone import RepellentField
 from swarmhazard.robots import RETURN, SEARCH, make_swarm, unit
 from swarmhazard.world import hazard_failures, in_hazard, make_world, respawn_item
@@ -51,12 +53,18 @@ class Simulation:
         self.items_lost = 0  # carried by a robot when it failed
         self.first_loss_step = -1
         self.false_sightings = 0
+        self._blind = None  # E7b: per-pair blind state for correlated misses
 
     def step(self) -> None:
         sw = self.swarm
         n = len(sw.pos)
         # Detection noise draws: a fixed number per step, whatever the robots are doing.
-        self._detected = self.noise_rng.random((n, n)) >= self.cfg.q_miss  # [i, j]: robot i detects wreck j
+        draws = self.noise_rng.random((n, n))
+        if self.cfg.miss_run > 0:
+            self._blind = next_blind(self._blind, draws, self.cfg.q_miss, self.cfg.miss_run)
+            self._detected = ~self._blind  # [i, j]: robot i detects wreck j
+        else:
+            self._detected = draws >= self.cfg.q_miss  # [i, j]: robot i detects wreck j
         false_draw = self.noise_rng.random(n)
         alive = sw.alive.copy()
         searching = alive & (sw.state == SEARCH)

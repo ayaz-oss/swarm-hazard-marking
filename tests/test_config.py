@@ -54,3 +54,15 @@ def test_c5_settings_validated(field, value):
 def test_more_settings_validated(field, value):
     with pytest.raises(ValueError):
         Config(**{field: value})
+
+
+@pytest.mark.parametrize("kw", [dict(miss_run=-1.0), dict(miss_run=0.5, q_miss=0.2),
+                                dict(miss_run=10.0, q_miss=1.0), dict(miss_run=2.0, q_miss=0.8)])
+def test_bad_miss_run_rejected(kw):
+    with pytest.raises(ValueError):
+        Config(**kw)
+
+
+def test_good_miss_run_accepted():
+    Config(miss_run=100.0, q_miss=0.8)
+    Config(miss_run=4.0, q_miss=0.8)  # entry probability exactly 1
