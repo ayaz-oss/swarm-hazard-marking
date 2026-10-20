@@ -29,12 +29,16 @@ hazards:
   - [8.81, 6.19, 1.0]
 lethality: 0.02           # failure probability per step inside a hazard
 random_fail_rate: 0.0     # per robot per step, anywhere; E2's no-hazard control only
+q_miss: 0.0               # E7: chance per step that a robot misses a wreck in range
+q_false: 0.0              # E7: chance per step that a robot sees a wreck that is not there
 
 # Controller
 controller: C0
 wreck_weight: 1.0         # C2: push away from visible wrecks
 repel_weight: 1.0         # C2: push down the repellent gradient
 risk_k: 1.0               # C3: repulsion divided by (1 + risk_k * items in view)
+share_every: 10           # C5: steps between map exchanges with neighbours (1 s)
+comm_range: 1.0           # C5: m, robots this close exchange maps
 
 # Repellent field (C2)
 grid_cell: 0.1            # m

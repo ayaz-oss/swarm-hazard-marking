@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from swarmhazard.analysis import E2_NONE_CELL, compare, confirmatory, holm, paired, wilcoxon_p
+from swarmhazard.analysis import (E2_NONE_CELL, compare, confirmatory, descriptive, exploratory,
+                                  holm, paired, wilcoxon_p)
 
 
 def frame(rows):
@@ -56,3 +57,22 @@ def test_confirmatory_on_synthetic_data():
     assert out.loc["H1", "supported"] and out.loc["H2", "supported"]
     assert not out.loc["H4", "supported"]
     assert out.loc["H3", "supported"]
+
+
+def test_descriptive_and_exploratory_on_synthetic_data():
+    rng = np.random.default_rng(5)
+    rows = []
+    for s in range(30):
+        base = rng.normal(40, 5)
+        rows += [("E", 0, "C0", s, base, 3), ("E", 0, "C2", s, base + 2, 1), ("E", 0, "C4", s, base + 4, 0)]
+    df = frame(rows)
+    df["auc_final"] = np.nan
+    df["hazard_area"] = 3.18
+    df["false_sightings"] = 2.0
+    d = descriptive(df, np.random.default_rng(1), n_boot=500).set_index("controller")
+    assert np.isnan(d.loc["C4", "items_per_robot_lost"])
+    assert d.loc["C0", "items_per_robot_lost"] > 0
+    assert d.loc["C0", "false_sightings_mean"] == 2.0
+    e = exploratory(df, np.random.default_rng(1), n_boot=500)
+    assert set(e["x"]) == {"C0", "C4"} and set(e["metric"]) == {"delivered", "robots_lost"}
+    assert e["p_holm"].between(0, 1).all()

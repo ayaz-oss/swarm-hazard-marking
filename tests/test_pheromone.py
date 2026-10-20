@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from swarmhazard.pheromone import RepellentField
+from swarmhazard.pheromone import RepellentField, personal_gradient
 
 
 def test_deposit_peak_and_shape():
@@ -36,3 +36,23 @@ def test_edges_are_safe():
     v = f.value(np.array([[-1.0, -1.0], [11.0, 11.0]]))
     assert v.shape == (2,)
     assert np.all(v > 0)
+
+
+def test_bump_matches_deposit():
+    a = RepellentField(10.0, 0.1)
+    b = RepellentField(10.0, 0.1)
+    a.deposit((3.3, 4.4), 2.0, 0.3)
+    sx, sy, values = b.bump((3.3, 4.4), 2.0, 0.3)
+    b.grid[sx, sy] += values
+    assert np.array_equal(a.grid, b.grid)
+
+
+def test_personal_gradient_reads_each_robots_own_map():
+    field = RepellentField(10.0, 0.1)
+    maps = np.zeros((2, field.n, field.n))
+    sx, sy, values = field.bump((5.05, 5.05), 1.0, 0.3)
+    maps[0, sx, sy] += values
+    pts = np.array([[5.55, 5.05], [5.55, 5.05]])
+    g = personal_gradient(maps, pts, 0.5, field.cell)
+    assert g[0, 0] < 0
+    assert np.all(g[1] == 0)

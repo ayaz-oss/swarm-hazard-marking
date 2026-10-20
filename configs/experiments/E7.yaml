@@ -1,0 +1,12 @@
+# E7 (exploratory): detection noise. Cell order is fixed (figures rely on it).
+# C0 is a noise-free reference (noise cannot affect it). Week-4 addendum sections 2-3.
+name: E7
+base: configs/baseline.yaml
+controllers: [C0, C1, C2, C3]
+seeds: 100
+overrides_file: configs/tuned_params.yaml
+cells:
+  - {}                                  # 0: no noise
+  - {q_miss: 0.2}                       # 1: 20% of detections missed
+  - {q_false: 0.00001}                  # 2: false sightings
+  - {q_miss: 0.2, q_false: 0.00001}     # 3: both

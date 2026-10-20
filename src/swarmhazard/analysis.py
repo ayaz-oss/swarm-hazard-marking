@@ -17,7 +17,7 @@ from swarmhazard.stats import a12
 
 N_BOOT = 10_000
 BOOT_SEED = 20261016
-CONTROLLERS = ["C0", "C1", "C2", "C3", "C4"]
+CONTROLLERS = ["C0", "C1", "C2", "C3", "C4", "C5"]
 E2_NONE_CELL = 3
 H3_BOUND = 0.36
 
@@ -157,5 +157,6 @@ def descriptive(df: pd.DataFrame, rng: np.random.Generator, n_boot: int = N_BOOT
             "items_per_robot_lost": float(delivered.sum() / total_lost) if total_lost > 0 else float("nan"),
             "auc_final_median": float(sub["auc_final"].median()) if "auc_final" in sub else float("nan"),
             "hazard_area": float(sub["hazard_area"].iloc[0]) if "hazard_area" in sub else float("nan"),
+            "false_sightings_mean": float(sub["false_sightings"].mean()) if "false_sightings" in sub else float("nan"),
         })
     return pd.DataFrame(rows)

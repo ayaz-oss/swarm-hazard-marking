@@ -31,6 +31,13 @@ Design: `docs/superpowers/specs/2026-10-14-swarm-hazard-design.md`
 
 The analysis plan and hypotheses are in `docs/hypotheses.md`.
 
+## Run experiments from a frozen copy (week 4)
+
+    .venv/Scripts/python scripts/run_batch.py E6 E7
+
+Checks out the current commit into `.batch/<sha>/`, runs the golden test there, then runs
+each experiment from that copy, so later edits or commits cannot change a running batch.
+
 ## Watch a run
 
     .venv/Scripts/python scripts/animate.py --controller C2 --seed 0

@@ -205,3 +205,115 @@ def test_hazard_area_is_reported():
     r = run(Config(n_steps=1), make_rng("t", 0, 0))
     assert abs(r["hazard_area"] - math.pi) < 0.05
     assert run(Config(n_steps=1, hazards=()), make_rng("t", 0, 0))["hazard_area"] == 0.0
+
+
+def test_missed_wrecks_are_not_marked():
+    sim = new_sim(controller="C2", q_miss=1.0)
+    place_wreck_next_to_robot_0(sim)
+    sim.step()
+    assert sim.field.grid.max() == 0
+    assert not sim.seen[0, 1]
+
+
+@pytest.mark.parametrize("controller, deposits", [("C1", False), ("C2", True)])
+def test_false_sightings_mark_only_for_marking_controllers(controller, deposits):
+    sim = new_sim(controller=controller, q_false=1.0)
+    sim.step()
+    r = sim.result()
+    assert r["false_sightings"] == sim.cfg.n_robots
+    assert (sim.field.grid.max() > 0) == deposits
+
+
+def test_c5_marks_only_the_observers_own_map():
+    sim = new_sim(controller="C5")
+    place_wreck_next_to_robot_0(sim)
+    sim.step()
+    assert sim.maps[0].max() > 0
+    assert sim.maps[2:].max() == 0
+    assert sim.field.grid.max() == 0
+
+
+def test_c5_maps_spread_one_hop_per_exchange():
+    sim = new_sim(controller="C5", share_every=1)
+    sim.maps[0, 30, 30] = 5.0
+    sim.swarm.pos[0] = [3.0, 3.0]
+    sim.swarm.pos[2] = [3.5, 3.0]   # 0.5 m from robot 0
+    sim.swarm.pos[4] = [4.3, 3.0]   # 0.8 m from robot 2, 1.3 m from robot 0
+    sim.step()
+    assert sim.maps[2, 30, 30] > 0
+    assert sim.maps[4, 30, 30] == 0   # needs a second exchange
+    sim.step()
+    assert sim.maps[4, 30, 30] > 0
+
+
+def test_c5_localisation_uses_the_live_robots_mean_map():
+    sim = new_sim(controller="C5", lethality=0.0, metric_every=1)
+    sim.swarm.alive[1] = False
+    sim.swarm.pos[1] = [8.81, 6.19]
+    sim.swarm.pos[0] = [9.01, 6.19]
+    sim.step()
+    assert sim.result()["auc_final"] > 0.5
+
+
+def test_hazard_and_random_failure_together_count_each_robot_once():
+    sim = new_sim(lethality=1.0, random_fail_rate=1.0)
+    sim.swarm.pos[:] = [8.81, 6.19]
+    sim.swarm.state[:] = RETURN
+    sim.picked_up = sim.cfg.n_robots
+    sim.step()
+    r = sim.result()
+    assert r["robots_lost"] == sim.cfg.n_robots
+    assert r["items_lost"] == sim.cfg.n_robots   # each carrier counted once
+    assert r["first_loss_step"] == 0
+
+
+def test_random_failure_of_a_carrier_loses_its_item():
+    sim = new_sim(hazards=(), random_fail_rate=1.0)
+    sim.swarm.state[0] = RETURN
+    sim.swarm.pos[0] = [1.0, 1.0]   # away from the nest, so it cannot deliver first
+    sim.picked_up = 1
+    sim.step()
+    r = sim.result()
+    assert r["items_lost"] == 1 and r["carrying"] == 0
+    assert r["first_loss_step"] == 0
+
+
+def test_hazard_area_is_clipped_by_the_wall():
+    r = run(Config(n_steps=1, hazards=((9.5153, 5.4847, 2.0),)), make_rng("t", 0, 0))
+    assert 7.9 < r["hazard_area"] < 8.5      # about 8.23 m², well below pi * 2**2 = 12.57
+
+
+def test_c5_auc_ignores_dead_robots_maps():
+    sim = new_sim(controller="C5", lethality=0.0, metric_every=1)
+    sim.swarm.alive[1] = False
+    sim.swarm.pos[1] = [8.81, 6.19]
+    sim.swarm.pos[0] = [9.01, 6.19]
+    sim.maps[1, :60, :] = 1000.0        # a huge region far from the hazard (ix >= 78), in a dead robot's map
+    sim.step()
+    assert sim.result()["auc_final"] > 0.5   # would collapse if dead maps were averaged in
+
+
+def test_c5_dead_robots_neither_send_nor_receive_maps():
+    sim = new_sim(controller="C5", share_every=1)
+    sim.swarm.alive[3] = False
+    sim.swarm.pos[3] = [3.7, 3.0]
+    sim.maps[3, 30, 30] = 5.0           # dead robot holds information
+    sim.swarm.pos[0] = [3.0, 3.0]       # live neighbour 0.2 m away
+    sim.maps[0, 70, 70] = 5.0           # live robot holds other information
+    sim.swarm.pos[5] = [3.0, 3.8]       # live robot 0.8 m from robot 0: positive control
+    sim.step()
+    assert sim.maps[0, 30, 30] == 0     # nothing received from the dead robot
+    assert sim.maps[3, 70, 70] == 0     # nothing sent to the dead robot
+    assert sim.maps[5, 70, 70] > 0      # a live neighbour does receive it
+
+
+def test_c5_maps_decay_and_false_sightings_go_into_own_map():
+    sim = new_sim(controller="C5", q_false=1.0)
+    sim.step()
+    assert sim.result()["false_sightings"] == sim.cfg.n_robots
+    assert all(sim.maps[i].max() > 0 for i in range(sim.cfg.n_robots))
+    assert sim.field.grid.max() == 0
+    sim2 = new_sim(controller="C5")
+    sim2.maps[0, 50, 50] = 1.0
+    sim2.step()
+    assert sim2.maps[0, 50, 50] == pytest.approx(1.0 - sim2.cfg.decay)

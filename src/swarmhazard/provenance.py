@@ -11,6 +11,8 @@ import subprocess
 from importlib.metadata import version
 from pathlib import Path
 
+import swarmhazard
+
 PACKAGES = {"numpy": "numpy", "scipy": "scipy", "pandas": "pandas",
             "matplotlib": "matplotlib", "pyyaml": "PyYAML"}
 
@@ -35,4 +37,5 @@ def provenance(root: Path) -> dict:
         "processor": platform.processor(),
     }
     info.update({f"v_{key}": version(dist) for key, dist in PACKAGES.items()})
+    info["package_root"] = str(Path(swarmhazard.__file__).resolve().parents[1])
     return info

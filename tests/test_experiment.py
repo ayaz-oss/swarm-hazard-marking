@@ -75,3 +75,29 @@ def test_main_experiments_are_valid_and_use_tuned_parameters():
     e2 = build_cells(load_experiment(ROOT / "configs" / "experiments" / "E2.yaml", ROOT))
     assert len(e2) == 4
     assert e2[3]["hazards"] == [] and e2[3]["random_fail_rate"] > 0
+
+
+def test_main_experiment_levels_are_exactly_as_preregistered():
+    def cells(name):
+        return build_cells(load_experiment(ROOT / "configs" / "experiments" / f"{name}.yaml", ROOT))
+    assert cells("E1") == [{}]
+    assert cells("E2") == [{}, {"hazards": [[6.25, 6.25, 1.0]]}, {"hazards": [[5.0, 9.0, 1.0]]},
+                           {"hazards": [], "random_fail_rate": 0.0000266}]
+    assert cells("E3") == [{"n_robots": n} for n in (5, 10, 20, 40, 80)]
+    assert cells("E4") == [{"lethality": p} for p in (0.005, 0.02, 0.1, 1.0)]
+    assert cells("E5") == [{"hazards": [[8.4546, 6.5454, 0.5]]}, {}, {"hazards": [[9.5153, 5.4847, 2.0]]}]
+
+
+def test_week4_experiments():
+    e6 = load_experiment(ROOT / "configs" / "experiments" / "E6.yaml", ROOT)
+    assert e6["controllers"] == ["C2", "C5"] and e6["seeds"] == 100
+    assert build_cells(e6) == [{"n_robots": n} for n in (5, 10, 20, 40, 80)]
+    e7 = load_experiment(ROOT / "configs" / "experiments" / "E7.yaml", ROOT)
+    assert e7["controllers"] == ["C0", "C1", "C2", "C3"] and e7["seeds"] == 100
+    assert build_cells(e7) == [{}, {"q_miss": 0.2}, {"q_false": 0.00001}, {"q_miss": 0.2, "q_false": 0.00001}]
+    tuned = yaml.safe_load((ROOT / "configs" / "tuned_params.yaml").read_text())
+    for spec in (e6, e7):
+        for key, value in tuned.items():
+            assert spec["overrides"][key] == value
+        for job in build_jobs(spec, seeds=1):
+            load_config(ROOT / job["base"], **job["overrides"], controller=job["controller"])

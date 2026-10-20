@@ -14,7 +14,7 @@ from pathlib import Path
 
 import yaml
 
-KNOWN_CONTROLLERS = ("C0", "C1", "C2", "C3", "C4")
+KNOWN_CONTROLLERS = ("C0", "C1", "C2", "C3", "C4", "C5")
 
 
 @dataclass(frozen=True)
@@ -45,12 +45,17 @@ class Config:
     hazards: tuple[tuple[float, float, float], ...] = ((8.81, 6.19, 1.0),)
     lethality: float = 0.02
     random_fail_rate: float = 0.0  # per robot per step, anywhere (E2 random-failure control)
+    # Detection noise (E7): miss probability per robot-wreck-step; false sighting per robot-step
+    q_miss: float = 0.0
+    q_false: float = 0.0
 
     # Controller and its weights
     controller: str = "C0"
     wreck_weight: float = 1.0
     repel_weight: float = 1.0
     risk_k: float = 1.0
+    share_every: int = 10     # C5: steps between map exchanges (1 s)
+    comm_range: float = 1.0   # C5: m, robots this close exchange maps
 
     # Repellent field
     grid_cell: float = 0.1
@@ -69,8 +74,18 @@ class Config:
             for hx, hy, hr in self.hazards:
                 if math.hypot(px - hx, py - hy) < pr + hr:
                     raise ValueError(f"Patch at ({px}, {py}) overlaps hazard at ({hx}, {hy})")
-        if not 0.0 <= self.random_fail_rate <= 1.0:
-            raise ValueError(f"random_fail_rate must be in [0, 1], got {self.random_fail_rate}")
+        for name in ("random_fail_rate", "q_miss", "q_false"):
+            value = getattr(self, name)
+            if not 0.0 <= value <= 1.0:
+                raise ValueError(f"{name} must be in [0, 1], got {value}")
+        if self.share_every < 1:
+            raise ValueError(f"share_every must be >= 1, got {self.share_every}")
+        if self.comm_range < 0:
+            raise ValueError(f"comm_range must be >= 0, got {self.comm_range}")
+        if self.risk_k < 0:
+            raise ValueError(f"risk_k must be >= 0, got {self.risk_k}")
+        if self.metric_every < 1:
+            raise ValueError(f"metric_every must be >= 1, got {self.metric_every}")
 
 
 def _freeze(value):

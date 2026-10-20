@@ -37,6 +37,8 @@ def main() -> None:
     parser.add_argument("--workers", type=int, default=4,
                         help="parallel processes (default 4: measured fastest on the development laptop)")
     parser.add_argument("--allow-dirty", action="store_true", help="run despite uncommitted changes")
+    parser.add_argument("--results-dir", type=Path, default=ROOT / "results",
+                        help="where to write the CSV (default: this checkout's results/)")
     args = parser.parse_args()
 
     spec = load_experiment(args.experiment, ROOT)
@@ -54,7 +56,7 @@ def main() -> None:
     df = pd.DataFrame(rows)
     for key, value in info.items():
         df[key] = value
-    out = ROOT / "results" / f"{spec['name']}{'_smoke' if smoke else ''}.csv"
+    out = args.results_dir / f"{spec['name']}{'_smoke' if smoke else ''}.csv"
     out.parent.mkdir(exist_ok=True)
     df.to_csv(out, index=False)
 

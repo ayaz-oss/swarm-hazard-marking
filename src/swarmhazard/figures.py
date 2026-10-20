@@ -21,20 +21,23 @@ with warnings.catch_warnings():
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-CONTROLLERS = ["C0", "C1", "C2", "C3", "C4"]
-PALETTE = {"C0": "#999999", "C1": "#E69F00", "C2": "#0072B2", "C3": "#009E73", "C4": "#CC79A7"}
+CONTROLLERS = ["C0", "C1", "C2", "C3", "C4", "C5"]
+PALETTE = {"C0": "#999999", "C1": "#E69F00", "C2": "#0072B2", "C3": "#009E73", "C4": "#CC79A7",
+           "C5": "#D55E00"}
 NAMES = {"C0": "C0 ignore", "C1": "C1 avoid wrecks", "C2": "C2 mark",
-         "C3": "C3 mark + risk", "C4": "C4 oracle"}
+         "C3": "C3 mark + risk", "C4": "C4 oracle", "C5": "C5 own maps"}
 METRICS = {"delivered": "Items delivered", "robots_lost": "Robots lost"}
 LEVELS = {
     "E2": ["next to patch", "between patch\nand nest", "far", "no hazard\n(random failures)"],
     "E3": [5, 10, 20, 40, 80],
     "E4": [0.005, 0.02, 0.1, 1.0],
     "E5": [0.5, 1.0, 2.0],
+    "E6": [5, 10, 20, 40, 80],
+    "E7": ["no noise", "20% missed", "false\nsightings", "both"],
 }
 XLABEL = {"E3": "Swarm size (robots)", "E4": "Lethality per step inside the hazard",
-          "E5": "Hazard area inside the arena (m²)"}
-LOGX = {"E3": True, "E4": True, "E5": False}
+          "E5": "Hazard area inside the arena (m²)", "E6": "Swarm size (robots)"}
+LOGX = {"E3": True, "E4": True, "E5": False, "E6": True}
 METRIC_EVERY_S = 50.0  # metric_every (500 steps) x dt (0.1 s)
 
 
@@ -69,8 +72,12 @@ def fig_e1(df: pd.DataFrame, out_dir: Path) -> list[Path]:
     return _save(fig, out_dir, "e1_baseline")
 
 
-def fig_e2(df: pd.DataFrame, out_dir: Path) -> list[Path]:
-    levels = LEVELS["E2"]
+CELL_TITLES = {"E2": ("E2: hazard placement", "e2_placement"),
+               "E7": ("E7: detection noise", "e7_noise")}
+
+
+def fig_cells(df: pd.DataFrame, name: str, out_dir: Path) -> list[Path]:
+    levels = LEVELS[name]
     fig, axes = plt.subplots(2, len(levels), figsize=(3 * len(levels), 5.6), sharey="row")
     for col, label in enumerate(levels):
         sub = df[df["cell"] == col]
@@ -79,8 +86,9 @@ def fig_e2(df: pd.DataFrame, out_dir: Path) -> list[Path]:
             if col > 0:
                 axes[row, col].set_ylabel("")
         axes[0, col].set_title(label)
-    fig.suptitle("E2: hazard placement")
-    return _save(fig, out_dir, "e2_placement")
+    title, stem = CELL_TITLES[name]
+    fig.suptitle(title)
+    return _save(fig, out_dir, stem)
 
 
 def fig_sweep(df: pd.DataFrame, name: str, out_dir: Path) -> list[Path]:
@@ -146,10 +154,11 @@ def _make_all(results_dir: Path, out_dir: Path) -> list[Path]:
         e1 = pd.read_csv(path)
         written += fig_e1(e1, out_dir)
         written += fig_auc(e1, out_dir)
-    path = results_dir / "E2.csv"
-    if path.exists():
-        written += fig_e2(pd.read_csv(path), out_dir)
-    for name in ("E3", "E4", "E5"):
+    for name in ("E2", "E7"):
+        path = results_dir / f"{name}.csv"
+        if path.exists():
+            written += fig_cells(pd.read_csv(path), name, out_dir)
+    for name in ("E3", "E4", "E5", "E6"):
         path = results_dir / f"{name}.csv"
         if path.exists():
             written += fig_sweep(pd.read_csv(path), name, out_dir)

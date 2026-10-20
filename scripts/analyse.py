@@ -1,4 +1,5 @@
-"""Run the pre-registered analysis (docs/hypotheses.md) on results/E*.csv.
+"""Run the pre-registered analysis (docs/hypotheses.md) on results/E1-E7.csv; E6/E7 are accepted
+only if every golden case from E1's commit is unchanged at theirs.
 
 Writes results/analysis/confirmatory.csv and, per experiment, *_descriptive.csv and
 *_exploratory.csv. Each table uses its own bootstrap generator seeded 20261016, so every
@@ -10,6 +11,7 @@ Usage: python scripts/analyse.py
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -23,7 +25,7 @@ from swarmhazard.experiment import build_cells, load_experiment
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "results"
 OUT = RESULTS / "analysis"
-MAIN = ["E1", "E2", "E3", "E4", "E5"]
+MAIN = ["E1", "E2", "E3", "E4", "E5", "E6", "E7"]
 
 
 def completeness_problems(name: str, df: pd.DataFrame) -> list[str]:
@@ -45,6 +47,9 @@ def completeness_problems(name: str, df: pd.DataFrame) -> list[str]:
             n = int(counts.get((cell, ctrl), 0))
             if n != spec["seeds"]:
                 problems.append(f"{name}: cell {cell} {ctrl} has {n} rows, expected {spec['seeds']}")
+    for (cell, ctrl), g in df.groupby(["cell", "controller"]):
+        if set(g["seed"].astype(int)) != set(range(spec["seeds"])):
+            problems.append(f"{name}: cell {cell} {ctrl} seeds are not exactly 0..{spec['seeds'] - 1}")
     return problems
 
 
@@ -53,6 +58,55 @@ def _simulator_paths(root: Path) -> list[str]:
     files = sorted(f.relative_to(root).as_posix() for f in src.glob("**/*.py")
                    if f.name not in ("analysis.py", "figures.py"))
     return files + ["configs", "scripts/run_experiment.py"]
+
+
+def _same_record(a: dict, b: dict) -> bool:
+    if a.keys() != b.keys():
+        return False
+    for k in a:
+        x, y = a[k], b[k]
+        if isinstance(x, float) and isinstance(y, float) and x != x and y != y:
+            continue
+        if x != y:
+            return False
+    return True
+
+
+def golden_unchanged(ref: dict, new: dict) -> bool:
+    """Every golden case recorded at the reference commit is present and identical."""
+    return all(name in new and _same_record(new[name], record) for name, record in ref.items())
+
+
+def _golden_at(commit: str, root: Path) -> dict:
+    text = subprocess.run(["git", "show", f"{commit}:tests/data/golden.json"], cwd=root,
+                          capture_output=True, text=True, check=True).stdout
+    return json.loads(text)
+
+
+def package_root_ok(root_value: str, commit: str) -> bool:
+    """True if the recorded package root is the frozen worktree for exactly this commit."""
+    return str(root_value).replace("\\", "/").rstrip("/").endswith(f"/.batch/{commit}/src")
+
+
+def _golden_branch_problems(name: str, df: pd.DataFrame, ref: str, c: str, root: Path) -> list[str]:
+    """Extra checks for a batch run from a different, golden-verified simulator version."""
+    problems: list[str] = []
+    if "package_root" not in df:
+        problems.append(f"{name}: no package_root column; cannot verify the code ran from .batch/{c}")
+    elif df["package_root"].astype(str).nunique() == 1:
+        value = str(df["package_root"].iloc[0])
+        if not package_root_ok(value, c):
+            problems.append(f"{name}: package_root {value!r} does not end with /.batch/{c}/src")
+    if subprocess.run(["git", "diff", "--quiet", ref, c, "--", "configs/tuned_params.yaml"],
+                      cwd=root).returncode != 0:
+        problems.append(f"{name}: configs/tuned_params.yaml differs between {ref} and {c}")
+    diff = subprocess.run(["git", "diff", ref, c, "--", "configs/baseline.yaml"], cwd=root,
+                          capture_output=True, text=True).stdout
+    removed = [ln for ln in diff.splitlines() if ln.startswith("-") and not ln.startswith("---")]
+    if removed:
+        problems.append(f"{name}: configs/baseline.yaml has removed/changed lines between "
+                        f"{ref} and {c}: {removed}")
+    return problems
 
 
 def provenance_problems(frames: dict[str, pd.DataFrame], root: Path) -> list[str]:
@@ -68,6 +122,10 @@ def provenance_problems(frames: dict[str, pd.DataFrame], root: Path) -> list[str
     ref_list = commits.get("E1", [])
     if len(ref_list) != 1 or ref_list[0].endswith("-dirty") or ref_list[0] == "unknown":
         return problems
+    for name, df in frames.items():
+        if "package_root" in df and df["package_root"].astype(str).nunique() != 1:
+            problems.append(f"{name}: package_root must hold a single value, found "
+                            f"{sorted(set(df['package_root'].astype(str)))}")
     ref = ref_list[0]
     paths = _simulator_paths(root)
     for name, cs in commits.items():
@@ -81,8 +139,17 @@ def provenance_problems(frames: dict[str, pd.DataFrame], root: Path) -> list[str
         if r.returncode == 0:
             print(f"{name}: code {c} (simulator identical to {ref})")
         else:
-            problems.append(f"{name}: simulator code at {c} differs from E1's {ref} "
-                            f"(git diff exit {r.returncode})")
+            try:
+                same = golden_unchanged(_golden_at(ref, root), _golden_at(c, root))
+            except subprocess.CalledProcessError:
+                same = False
+            if same:
+                problems.extend(_golden_branch_problems(name, frames[name], ref, c, root))
+                print(f"{name}: code {c} (simulator changed; every golden case from {ref} "
+                      f"reproduced bit-identically)")
+            else:
+                problems.append(f"{name}: simulator code at {c} differs from E1's {ref} "
+                                f"and the golden cases do not match")
     return problems
 
 

@@ -11,6 +11,9 @@ differ only here:
   C4  Oracle         - knows the true hazards and never steps inside one; when a
                        move is blocked it slides along the hazard edge. No other
                        avoidance. Upper bound on hazard avoidance, not a swarm method.
+  C5  Own maps       - as C2, but each robot keeps its own repellent map, marks it
+                       itself and merges it with neighbours within comm_range once
+                       per share_every steps (PERSONAL). No shared field.
 """
 
 from __future__ import annotations
@@ -19,19 +22,27 @@ import numpy as np
 
 from swarmhazard.config import Config
 from swarmhazard.geometry import norm
-from swarmhazard.pheromone import RepellentField
+from swarmhazard.pheromone import RepellentField, personal_gradient
 from swarmhazard.world import World, in_hazard
 
 MARKING = frozenset({"C2", "C3"})
+PERSONAL = frozenset({"C5"})
 
 
-def wreck_repulsion(pos: np.ndarray, wreck_pos: np.ndarray, sense_range: float) -> np.ndarray:
-    """Sum of unit pushes away from each visible wreck, stronger when closer."""
+def wreck_repulsion(pos: np.ndarray, wreck_pos: np.ndarray, sense_range: float,
+                    detected: np.ndarray | None = None) -> np.ndarray:
+    """Sum of pushes away from each visible wreck, stronger when closer.
+
+    `detected[i, j]` False means robot i missed wreck j this step (E7 noise).
+    """
     if len(wreck_pos) == 0:
         return np.zeros_like(pos)
     diff = pos[:, None, :] - wreck_pos[None, :, :]
     dist = norm(diff)
-    weight = np.where((dist < sense_range) & (dist > 1e-9), 1.0 - dist / sense_range, 0.0)
+    visible = (dist < sense_range) & (dist > 1e-9)
+    if detected is not None:
+        visible &= detected
+    weight = np.where(visible, 1.0 - dist / sense_range, 0.0)
     direction = diff / np.maximum(dist, 1e-9)[..., None]
     return (weight[..., None] * direction).sum(axis=1)
 
@@ -57,18 +68,22 @@ def hazard_tangent(world: World, pos: np.ndarray, direction: np.ndarray) -> np.n
 
 
 def avoidance(cfg: Config, pos: np.ndarray, wreck_pos: np.ndarray, field: RepellentField,
-              world: World) -> np.ndarray:
+              world: World, detected: np.ndarray | None = None,
+              maps: np.ndarray | None = None) -> np.ndarray:
     """Vector added to each robot's intended unit heading."""
     if cfg.controller == "C0":
         return np.zeros_like(pos)
     if cfg.controller == "C1":
-        return cfg.wreck_weight * wreck_repulsion(pos, wreck_pos, cfg.sense_range)
+        return cfg.wreck_weight * wreck_repulsion(pos, wreck_pos, cfg.sense_range, detected)
     if cfg.controller in ("C2", "C3"):
-        push = (cfg.wreck_weight * wreck_repulsion(pos, wreck_pos, cfg.sense_range)
+        push = (cfg.wreck_weight * wreck_repulsion(pos, wreck_pos, cfg.sense_range, detected)
                 - cfg.repel_weight * field.gradient(pos, cfg.sense_range))
         if cfg.controller == "C3":
             push = push / (1.0 + cfg.risk_k * items_in_view(pos, world.item_pos, cfg.sense_range))[:, None]
         return push
+    if cfg.controller == "C5":
+        return (cfg.wreck_weight * wreck_repulsion(pos, wreck_pos, cfg.sense_range, detected)
+                - cfg.repel_weight * personal_gradient(maps, pos, cfg.sense_range, field.cell))
     if cfg.controller == "C4":
         return np.zeros_like(pos)  # the oracle only refuses to enter (see blocks_move)
     raise ValueError(f"No avoidance rule for controller {cfg.controller!r}")
