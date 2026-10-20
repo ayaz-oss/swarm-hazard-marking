@@ -111,3 +111,12 @@ def test_c3_scales_the_wreck_term_too():
     c2_push = avoidance(c2, pos, wrecks, field, world)
     assert np.linalg.norm(c2_push) > 0
     assert np.allclose(avoidance(c3, pos, wrecks, field, world), c2_push / (1 + 2.0 * n))
+
+
+def test_oracle_blocks_only_moves_into_a_hazard_from_outside():
+    cfg = Config(controller="C4")
+    world = make_world(cfg, np.random.default_rng(0))
+    old = np.array([[8.81, 6.19], [7.7, 6.19]])   # inside, outside
+    new = np.array([[8.82, 6.19], [7.85, 6.19]])  # both inside
+    assert blocks_move(cfg, world, new, old).tolist() == [False, True]
+    assert blocks_move(cfg, world, new).tolist() == [True, True]

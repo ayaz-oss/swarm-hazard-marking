@@ -38,6 +38,10 @@ The analysis plan and hypotheses are in `docs/hypotheses.md`.
 Checks out the current commit into `.batch/<sha>/`, runs the golden test there, then runs
 each experiment from that copy, so later edits or commits cannot change a running batch.
 
+Week 5 (after the user approves the pre-registration): `python scripts/run_batch.py E6b E7b E8 --workers 4`,
+then `python scripts/analyse_week5.py` and `python scripts/make_figures.py`.
+Mechanism checks (small, descriptive): `python scripts/mechanism_checks.py --reference-dir <dir with E1.csv and E4.csv>`.
+
 ## Watch a run
 
     .venv/Scripts/python scripts/animate.py --controller C2 --seed 0

@@ -2,7 +2,9 @@
 
 A cell is one configuration (a set of parameter overrides). Every controller
 runs every seed in every cell, and the RNG depends on (name, cell, seed) only,
-so controllers are compared on identical conditions.
+so controllers are compared on identical conditions. With the opt-in key
+`paired_cells: true` the RNG depends on (name, 0, seed) instead, so every cell
+reuses cell 0's streams and cells differ only in their parameters.
 """
 
 from __future__ import annotations
@@ -40,18 +42,25 @@ def build_jobs(spec: dict, seeds: int | None = None, n_steps: int | None = None)
     if n_steps is not None:
         shared["n_steps"] = n_steps
     n_seeds = seeds if seeds is not None else spec["seeds"]
-    return [
+    jobs = [
         {"experiment": spec["name"], "base": spec["base"], "overrides": {**shared, **cell},
          "params": cell, "controller": controller, "cell": index, "seed": seed}
         for index, cell in enumerate(build_cells(spec))
         for controller in spec["controllers"]
         for seed in range(n_seeds)
     ]
+    if spec.get("paired_cells"):
+        # Every cell reuses cell 0's random streams, so cells differ only in their parameters
+        # and comparisons across cells are paired by seed (week-5 addendum section 2).
+        for job in jobs:
+            job["rng_cell"] = 0
+    return jobs
 
 
 def run_one(job: dict, root: Path) -> dict:
     cfg = load_config(root / job["base"], **job["overrides"], controller=job["controller"])
-    rng = make_rng(job["experiment"], job["cell"], job["seed"])
+    rng_cell = job.get("rng_cell", job["cell"])
+    rng = make_rng(job["experiment"], rng_cell, job["seed"])
     start = time.perf_counter()
     row = run(cfg, rng)
     row.update(
@@ -62,5 +71,7 @@ def run_one(job: dict, root: Path) -> dict:
         config_hash=config_hash(cfg),
         wall_s=round(time.perf_counter() - start, 3),
     )
+    if "rng_cell" in job:
+        row["rng_cell"] = rng_cell
     row.update({f"p_{name}": value for name, value in job["params"].items()})
     return row

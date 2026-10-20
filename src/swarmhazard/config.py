@@ -14,7 +14,7 @@ from pathlib import Path
 
 import yaml
 
-KNOWN_CONTROLLERS = ("C0", "C1", "C2", "C3", "C4", "C5")
+KNOWN_CONTROLLERS = ("C0", "C1", "C2", "C3", "C4", "C5", "C6")
 
 
 @dataclass(frozen=True)
@@ -44,18 +44,22 @@ class Config:
     # Hidden hazards: (x, y, radius); lethality = failure probability per step inside
     hazards: tuple[tuple[float, float, float], ...] = ((8.81, 6.19, 1.0),)
     lethality: float = 0.02
+    # Hazard move (E8): at the start of step hazard_move_step the hazards become hazards_after
+    hazard_move_step: int = -1  # -1 = never
+    hazards_after: tuple[tuple[float, float, float], ...] = ()
     random_fail_rate: float = 0.0  # per robot per step, anywhere (E2 random-failure control)
     # Detection noise (E7): miss probability per robot-wreck-step; false sighting per robot-step
     q_miss: float = 0.0
     q_false: float = 0.0
+    miss_run: float = 0.0  # E7b: mean blind-spell length in steps for correlated misses; 0 = independent
 
     # Controller and its weights
     controller: str = "C0"
     wreck_weight: float = 1.0
     repel_weight: float = 1.0
     risk_k: float = 1.0
-    share_every: int = 10     # C5: steps between map exchanges (1 s)
-    comm_range: float = 1.0   # C5: m, robots this close exchange maps
+    share_every: int = 10     # C5/C6: steps between exchanges (1 s)
+    comm_range: float = 1.0   # C5/C6: m, robots this close exchange
 
     # Repellent field
     grid_cell: float = 0.1
@@ -71,13 +75,25 @@ class Config:
             raise ValueError(f"Unknown controller {self.controller!r}; expected one of {KNOWN_CONTROLLERS}")
         # Items inside a hazard would make the oracle's task ill-defined.
         for px, py, pr, _ in self.patches:
-            for hx, hy, hr in self.hazards:
+            for hx, hy, hr in self.hazards + self.hazards_after:
                 if math.hypot(px - hx, py - hy) < pr + hr:
                     raise ValueError(f"Patch at ({px}, {py}) overlaps hazard at ({hx}, {hy})")
+        if self.hazard_move_step < -1:
+            raise ValueError(f"hazard_move_step must be >= -1, got {self.hazard_move_step}")
+        if self.hazards_after and self.hazard_move_step < 0:
+            raise ValueError("hazards_after needs hazard_move_step >= 0")
         for name in ("random_fail_rate", "q_miss", "q_false"):
             value = getattr(self, name)
             if not 0.0 <= value <= 1.0:
                 raise ValueError(f"{name} must be in [0, 1], got {value}")
+        if self.miss_run < 0:
+            raise ValueError(f"miss_run must be >= 0, got {self.miss_run}")
+        if self.miss_run > 0:
+            if self.miss_run < 1 or self.q_miss >= 1:
+                raise ValueError("correlated misses need miss_run >= 1 and q_miss < 1")
+            # Tolerance: 0.8 / (4 * 0.2) evaluates to 1 + 2e-16 in floating point.
+            if self.q_miss / (self.miss_run * (1 - self.q_miss)) > 1 + 1e-12:
+                raise ValueError(f"miss_run must be >= q_miss / (1 - q_miss), got {self.miss_run}")
         if self.share_every < 1:
             raise ValueError(f"share_every must be >= 1, got {self.share_every}")
         if self.comm_range < 0:

@@ -143,3 +143,55 @@ cell, two-sided Wilcoxon vs C2, Holm within each experiment) and descriptive tab
 
 Exact re-runs are claimed on the same machine and software environment (recorded per row).
 Across machines, results are expected to agree statistically, not bit for bit.
+
+## Week-5 experiments (exploratory; added 2026-10-20, before any E6b, E7b or E8 data exist; `docs/superpowers/specs/2026-10-20-week-5-addendum.md`)
+
+No confirmatory hypotheses. Nothing above this section is changed. 100 seeds per cell;
+parameters from the baseline plus `configs/tuned_params.yaml` (a cell's own value wins).
+
+| Exp | Controllers | Cells, in order | Paired cells |
+|---|---|---|---|
+| E6b | C2, C5, C6 | n_robots 5, 10, 20, 40, 80 | no |
+| E7b | C0, C1, C2, C3 | 0 no noise; 1 q_miss 0.5; 2 q_miss 0.8; 3 q_miss 0.5, miss_run 100; 4 q_miss 0.8, miss_run 100; 5 q_false 0.0001 | yes |
+| E8 | C0, C1, C2, C4 | hazard moves at step 5000 to: 0 (8.81, 6.19), i.e. stays (static), decay 0.0002; 1 (1.19, 3.81), decay 0.0002; 2 (1.19, 3.81), decay 0.002 | yes |
+
+- **C6:** as C2, but each robot holds its own set of sighting records (position, observer,
+  step), created exactly when C2 would deposit, and every 10 steps (1 s) adds the records
+  of live robots within 1 m (set union, synchronous, one hop per exchange). Its map is the
+  sum of C2's decayed bumps over the records it knows, so with full propagation it equals
+  C2's shared field. C2's tuned parameters; not tuned itself. AUC uses the mean of the live
+  robots' maps. C2 vs C6 changes only where the information is held; C5 vs C6 changes only
+  how observations combine (max-merge vs sum). C5 remains untuned.
+- **Paired cells:** every cell uses cell 0's random streams (`make_rng(name, 0, seed)`), so
+  seeds are paired across cells as well as across controllers.
+- **Correlated misses (`miss_run` > 0):** each (robot, wreck) pair is blind a fraction
+  q_miss of the time, in spells of `miss_run` steps on average (two-state chain; spec
+  addendum section 2). `miss_run` = 0 means independent misses as in E7.
+- **Hazard move (E8):** at the start of step 5000 the hazard is replaced; wrecks stay where
+  they are. The oracle C4 knows the new position at once (and steers out if the hazard
+  appears on top of it). Results are split at the move: `delivered_pre`, `lost_pre`,
+  `delivered_post`, `lost_post`; `auc_final` is against the new hazard, `auc_pre` and
+  `auc_old_final` against the old one.
+
+**Analysis (all exploratory).** Paired two-sided Wilcoxon signed-rank tests (Pratt zeros) and
+seed-bootstrap CIs as in the Statistics section, with **Holm correction over every test
+within each experiment**, where the tests are the Wilcoxon comparisons in items 1–4
+(Friedman p-values are reported alongside, not counted in the Holm family):
+
+1. Within each cell: Friedman across the experiment's controllers, then each controller vs
+   C2. Metrics: E6b and E7b `delivered` and `robots_lost`; E8 `delivered_post` and
+   `lost_post`.
+2. E6b also: C6 vs C5 in every cell, on `delivered` and `robots_lost`.
+3. E7b also (across cells, paired by seed): for each of C1, C2 and C3, each of cells 1–5 vs
+   cell 0, on `delivered` and `robots_lost`.
+4. E8 also (across cells, paired by seed), C2 only: cell 2 vs cell 1 on `delivered_pre`,
+   `lost_pre`, `delivered_post` and `lost_post`; cell 1 vs cell 0 on `delivered_post` and
+   `lost_post`.
+
+Family sizes: E6b 30 tests, E7b 66, E8 24. Localisation AUC (`auc_final`; in E8 also
+`auc_pre` and `auc_old_final`), the number of runs with any mark, `known_frac` (C6) and
+`false_sightings` are reported descriptively (medians with bootstrap CIs). Built-in identity
+checks are reported, not tested: in E7b every C0 run is identical across cells and C1 is
+identical in cells 0 and 5; in E8, C0, C1 and C4 are identical in cells 1 and 2. E6b, E7b and
+E8 are accepted only if every golden case recorded at E1's commit is unchanged at their
+commit (C0–C5 bit-identical with the new features off).

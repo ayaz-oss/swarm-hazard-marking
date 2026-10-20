@@ -1,0 +1,15 @@
+# E7b (exploratory): strong and correlated detection noise, cells paired by seed (every cell uses
+# cell 0's random streams). Cell order is fixed (figures rely on it). Week-5 addendum sections 2 and 4.
+name: E7b
+base: configs/baseline.yaml
+controllers: [C0, C1, C2, C3]
+seeds: 100
+paired_cells: true
+overrides_file: configs/tuned_params.yaml
+cells:
+  - {}                                  # 0: no noise
+  - {q_miss: 0.5}                       # 1: half of detections missed, independently
+  - {q_miss: 0.8}                       # 2: 80% missed, independently
+  - {q_miss: 0.5, miss_run: 100.0}      # 3: blind half the time, in ~10 s spells
+  - {q_miss: 0.8, miss_run: 100.0}      # 4: blind 80% of the time, in ~10 s spells
+  - {q_false: 0.0001}                   # 5: ~20 false sightings per run

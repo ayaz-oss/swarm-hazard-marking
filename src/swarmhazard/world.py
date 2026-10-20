@@ -69,3 +69,9 @@ def hazard_failures(world: World, pos: np.ndarray, alive: np.ndarray, lethality:
     """
     draws = rng.random(len(pos))
     return alive & in_hazard(world, pos) & (draws < lethality)
+
+
+def set_hazards(world: World, hazards) -> None:
+    """Replace the hazards (E8 moves the hazard once)."""
+    world.hazard_xy = np.array([h[:2] for h in hazards], dtype=float).reshape(-1, 2)
+    world.hazard_r = np.array([h[2] for h in hazards], dtype=float)

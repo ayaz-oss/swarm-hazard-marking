@@ -101,3 +101,47 @@ def test_week4_experiments():
             assert spec["overrides"][key] == value
         for job in build_jobs(spec, seeds=1):
             load_config(ROOT / job["base"], **job["overrides"], controller=job["controller"])
+
+
+def test_unpaired_jobs_are_unchanged():
+    assert all("rng_cell" not in j for j in build_jobs(spec(cells=[{}, {"q_miss": 0.5}])))
+
+
+def test_paired_cells_use_cell_zero_streams():
+    jobs = build_jobs(spec(cells=[{}, {"q_miss": 0.5}], paired_cells=True))
+    assert {j["rng_cell"] for j in jobs} == {0}
+    assert {j["cell"] for j in jobs} == {0, 1}
+
+
+def test_paired_cells_differ_only_in_parameters():
+    # C0 ignores wrecks, so with paired streams a miss-noise cell must reproduce cell 0 exactly.
+    s = spec(controllers=["C0"], seeds=1, cells=[{"lethality": 0.2}, {"lethality": 0.2, "q_miss": 0.5}],
+             paired_cells=True)
+    a, b = (run_one(j, ROOT) for j in build_jobs(s, n_steps=400))
+    for key in ("delivered", "robots_lost", "first_loss_step", "picked_up"):
+        assert a[key] == b[key]
+    assert a["rng_cell"] == b["rng_cell"] == 0 and (a["cell"], b["cell"]) == (0, 1)
+
+
+def test_week5_experiments_are_exactly_as_preregistered():
+    def load(name):
+        return load_experiment(ROOT / "configs" / "experiments" / f"{name}.yaml", ROOT)
+    e6b, e7b, e8 = load("E6b"), load("E7b"), load("E8")
+    assert e6b["controllers"] == ["C2", "C5", "C6"] and not e6b.get("paired_cells")
+    assert build_cells(e6b) == [{"n_robots": n} for n in (5, 10, 20, 40, 80)]
+    assert e7b["controllers"] == ["C0", "C1", "C2", "C3"] and e7b["paired_cells"] is True
+    assert build_cells(e7b) == [{}, {"q_miss": 0.5}, {"q_miss": 0.8}, {"q_miss": 0.5, "miss_run": 100.0},
+                                {"q_miss": 0.8, "miss_run": 100.0}, {"q_false": 0.0001}]
+    assert e8["controllers"] == ["C0", "C1", "C2", "C4"] and e8["paired_cells"] is True
+    assert e8["overrides"]["hazard_move_step"] == 5000
+    assert build_cells(e8) == [{"hazards_after": [[8.81, 6.19, 1.0]], "decay": 0.0002},
+                               {"hazards_after": [[1.19, 3.81, 1.0]], "decay": 0.0002},
+                               {"hazards_after": [[1.19, 3.81, 1.0]], "decay": 0.002}]
+    tuned = yaml.safe_load((ROOT / "configs" / "tuned_params.yaml").read_text())
+    for s in (e6b, e7b, e8):
+        assert s["seeds"] == 100
+        for key, value in tuned.items():
+            if key != "decay" or s is not e8:
+                assert s["overrides"][key] == value
+        for job in build_jobs(s, seeds=1):
+            load_config(ROOT / job["base"], **job["overrides"], controller=job["controller"])

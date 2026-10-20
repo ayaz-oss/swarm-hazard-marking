@@ -1,0 +1,15 @@
+# E8 (exploratory): the hazard moves once, at step 5000, to the baseline hazard reflected through
+# the nest. Cells paired by seed. Cell 0 "moves" it to where it already is (static reference).
+# Week-5 addendum sections 3 and 4.
+name: E8
+base: configs/baseline.yaml
+controllers: [C0, C1, C2, C4]
+seeds: 100
+paired_cells: true
+overrides_file: configs/tuned_params.yaml
+overrides:
+  hazard_move_step: 5000
+cells:
+  - {hazards_after: [[8.81, 6.19, 1.0]], decay: 0.0002}   # 0: static, tuned decay
+  - {hazards_after: [[1.19, 3.81, 1.0]], decay: 0.0002}   # 1: moved, tuned decay
+  - {hazards_after: [[1.19, 3.81, 1.0]], decay: 0.002}    # 2: moved, fast decay (half-life ~35 s)
