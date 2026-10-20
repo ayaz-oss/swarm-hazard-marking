@@ -283,9 +283,10 @@ Medians [CI]: 0.75 [0.5, 1.0] at N = 5, 1.0 [0.857, 1.0] at 10, 1.0 at 20 and 40
 not in the table, are lower: 0.708, 0.749, 0.918, 0.941 and 0.958. The share of runs
 with records in which every live robot knew every record (exactly 1.0) was 45%, 52%,
 72%, 63% and 49% for N = 5 to 80. So from N = 10 up, about half or more of the runs
-reached full spread (which is why the median is 1.0, or 0.997 at N = 80), and most of
-the rest came close, but in some runs the spread was clearly incomplete (the means are
-pulled down by them, most at N = 10).
+reached full spread (which is why the median is 1.0, or 0.997 at N = 80). At N = 40
+and 80 most of the remaining runs came close (23 of 37 and 39 of 51 at 0.9 or more), but
+at N = 10 and 20 the remaining runs were often far from full spread (their median was
+0.5 at N = 10 and 0.792 at N = 20), which is what pulls the means down.
 
 **Tested comparisons** (`E6b_tests.csv`; paired Wilcoxon, Holm over all 30 tests in
 E6b). Nothing survives Holm. The smallest Holm p is 0.4292, for robots lost at N = 10,
@@ -641,7 +642,7 @@ not touched.
   copies shared with neighbours, otherwise identical to C2) showed no detectable
   difference from C2 or from C5 at any swarm size after Holm correction (100 seeds per
   size). A likely reason (not tested) is that the records spread to nearly every
-  robot in most runs (median fraction known 0.997–1.0, means 0.75–0.96 for N ≥ 10) in
+  robot in about half or more of the runs (median fraction known 0.997–1.0, means 0.75–0.96 for N ≥ 10) in
   our 10 m arena with 1 m communication." Keep: C5 untuned; one arena size and range; never "equivalent".
 - **E7 / E7b.** "With stronger and correlated misses on the same layouts, C2 still lost
   fewer robots than C0 and C1 in every cell, and C3 showed no detectable difference from
@@ -649,7 +650,7 @@ not touched.
   deliveries showed no detectable change and its losses shifted slightly (A12 0.60) only with 80% misses in
   10 s spells." Do not claim robustness in general.
 - **False sightings.** Report the cell-5 rise plainly, with the AUC drop, and describe
-  the diagnostic as a small, non-pre-registered, descriptive check whose candidate
+  the diagnostic as a small, non-pre-registered, descriptive check whose
   candidate explanation, if right, would make it a property of the foraging model
   (robots lingering and possibly crowding near the nest), not a benefit of noise.
 - **E8.** "When the hazard moved half-way through, C2 lost more robots than when it
