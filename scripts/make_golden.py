@@ -49,6 +49,15 @@ GOLDEN_CASES = {
                  "q_miss": 0.2, "q_false": 0.0001},
     "C2_noisy_deadly": {"controller": "C2", "lethality": 1.0, "hazards": ((9.0, 5.0, 1.0),),
                         "n_steps": 6000, "metric_every": 500, "q_miss": 0.5, "q_false": 0.0001},
+    "C6": {"controller": "C6", "lethality": 0.2, "n_steps": 3000, "metric_every": 500},
+    "C6_deadly": {"controller": "C6", "lethality": 1.0, "hazards": ((9.0, 5.0, 1.0),),
+                  "n_steps": 4000, "metric_every": 500, "q_false": 0.0001},
+    "C2_corrmiss_deadly": {"controller": "C2", "lethality": 1.0, "hazards": ((9.0, 5.0, 1.0),),
+                           "n_steps": 4000, "metric_every": 500, "q_miss": 0.8, "miss_run": 100.0},
+    "C2_move": {"controller": "C2", "lethality": 0.2, "n_steps": 4000, "metric_every": 500, "decay": 0.002,
+                "hazard_move_step": 2000, "hazards_after": ((1.19, 3.81, 1.0),)},
+    "C4_move": {"controller": "C4", "lethality": 0.2, "n_steps": 3000,
+                "hazard_move_step": 500, "hazards_after": ((5.0, 5.0, 1.0),)},
 }
 
 

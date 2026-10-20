@@ -1,0 +1,9 @@
+# E6b (exploratory): one factor at a time. C2 vs C6 changes only where the information is held;
+# C5 vs C6 changes only how observations combine. Week-5 addendum sections 1 and 4.
+name: E6b
+base: configs/baseline.yaml
+controllers: [C2, C5, C6]
+seeds: 100
+overrides_file: configs/tuned_params.yaml
+grid:
+  n_robots: [5, 10, 20, 40, 80]
