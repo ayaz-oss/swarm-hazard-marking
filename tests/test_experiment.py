@@ -101,3 +101,23 @@ def test_week4_experiments():
             assert spec["overrides"][key] == value
         for job in build_jobs(spec, seeds=1):
             load_config(ROOT / job["base"], **job["overrides"], controller=job["controller"])
+
+
+def test_unpaired_jobs_are_unchanged():
+    assert all("rng_cell" not in j for j in build_jobs(spec(cells=[{}, {"q_miss": 0.5}])))
+
+
+def test_paired_cells_use_cell_zero_streams():
+    jobs = build_jobs(spec(cells=[{}, {"q_miss": 0.5}], paired_cells=True))
+    assert {j["rng_cell"] for j in jobs} == {0}
+    assert {j["cell"] for j in jobs} == {0, 1}
+
+
+def test_paired_cells_differ_only_in_parameters():
+    # C0 ignores wrecks, so with paired streams a miss-noise cell must reproduce cell 0 exactly.
+    s = spec(controllers=["C0"], seeds=1, cells=[{"lethality": 0.2}, {"lethality": 0.2, "q_miss": 0.5}],
+             paired_cells=True)
+    a, b = (run_one(j, ROOT) for j in build_jobs(s, n_steps=400))
+    for key in ("delivered", "robots_lost", "first_loss_step", "picked_up"):
+        assert a[key] == b[key]
+    assert a["rng_cell"] == b["rng_cell"] == 0 and (a["cell"], b["cell"]) == (0, 1)
