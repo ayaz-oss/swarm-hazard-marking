@@ -14,7 +14,7 @@ from pathlib import Path
 
 import yaml
 
-KNOWN_CONTROLLERS = ("C0", "C1", "C2", "C3", "C4", "C5")
+KNOWN_CONTROLLERS = ("C0", "C1", "C2", "C3", "C4", "C5", "C6")
 
 
 @dataclass(frozen=True)
@@ -58,8 +58,8 @@ class Config:
     wreck_weight: float = 1.0
     repel_weight: float = 1.0
     risk_k: float = 1.0
-    share_every: int = 10     # C5: steps between map exchanges (1 s)
-    comm_range: float = 1.0   # C5: m, robots this close exchange maps
+    share_every: int = 10     # C5/C6: steps between exchanges (1 s)
+    comm_range: float = 1.0   # C5/C6: m, robots this close exchange
 
     # Repellent field
     grid_cell: float = 0.1

@@ -15,6 +15,9 @@ differ only here:
   C5  Own maps       - as C2, but each robot keeps its own repellent map, marks it
                        itself and merges it with neighbours within comm_range once
                        per share_every steps (PERSONAL). No shared field.
+  C6  Records        - as C2, but each robot holds its own copy of the sighting records and
+                       passes them to neighbours within comm_range every share_every steps
+                       (RECORDS); with full propagation its map is C2's field.
 """
 
 from __future__ import annotations
@@ -28,7 +31,8 @@ from swarmhazard.world import World, in_hazard
 
 MARKING = frozenset({"C2", "C3"})
 PERSONAL = frozenset({"C5"})
-MAPPED = MARKING | PERSONAL  # controllers with a repellent map (localisation AUC)
+RECORDS = frozenset({"C6"})
+MAPPED = MARKING | PERSONAL | RECORDS  # controllers with a repellent map (localisation AUC)
 
 
 def wreck_repulsion(pos: np.ndarray, wreck_pos: np.ndarray, sense_range: float,
@@ -83,7 +87,7 @@ def hazard_outward(world: World, pos: np.ndarray) -> np.ndarray:
 
 def avoidance(cfg: Config, pos: np.ndarray, wreck_pos: np.ndarray, field: RepellentField,
               world: World, detected: np.ndarray | None = None,
-              maps: np.ndarray | None = None) -> np.ndarray:
+              maps: np.ndarray | None = None, records=None, t: int = 0) -> np.ndarray:
     """Vector added to each robot's intended unit heading."""
     if cfg.controller == "C0":
         return np.zeros_like(pos)
@@ -98,6 +102,9 @@ def avoidance(cfg: Config, pos: np.ndarray, wreck_pos: np.ndarray, field: Repell
     if cfg.controller == "C5":
         return (cfg.wreck_weight * wreck_repulsion(pos, wreck_pos, cfg.sense_range, detected)
                 - cfg.repel_weight * personal_gradient(maps, pos, cfg.sense_range, field.cell))
+    if cfg.controller == "C6":
+        return (cfg.wreck_weight * wreck_repulsion(pos, wreck_pos, cfg.sense_range, detected)
+                - cfg.repel_weight * records.gradient(pos, cfg.sense_range, t, cfg.decay))
     if cfg.controller == "C4":
         # The oracle only refuses to enter (see blocks_move). If a hazard appears on top of it
         # (E8), it heads straight out; otherwise this adds exactly zero.

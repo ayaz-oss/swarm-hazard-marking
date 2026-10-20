@@ -10,7 +10,9 @@ Each step, in order:
   5. failures         - robots inside a hazard fail with probability `lethality`;
                         every robot also fails with probability `random_fail_rate`
   6. mark            - MARKING: deposit on the shared field; PERSONAL (C5): on the observer's
-                        own map; maps decay; C5 robots exchange maps every share_every steps
+                        own map; maps decay; C5 robots exchange maps every share_every steps;
+                        RECORDS (C6): sighting records known by the observer, shared with
+                        neighbours every share_every steps
   7. noise (E7)       - robots may miss wrecks in range (correlated spells if miss_run > 0),
                         or mark wrecks that are not there
 """
@@ -20,11 +22,12 @@ from __future__ import annotations
 import numpy as np
 
 from swarmhazard.config import Config
-from swarmhazard.controllers import MAPPED, MARKING, PERSONAL, avoidance, blocks_move, hazard_tangent
+from swarmhazard.controllers import MAPPED, MARKING, PERSONAL, RECORDS, avoidance, blocks_move, hazard_tangent
 from swarmhazard.geometry import norm
 from swarmhazard.metrics import field_auc, hazard_mask
 from swarmhazard.noise import next_blind
 from swarmhazard.pheromone import RepellentField
+from swarmhazard.records import SightingRecords
 from swarmhazard.robots import RETURN, SEARCH, make_swarm, unit
 from swarmhazard.world import hazard_failures, in_hazard, make_world, respawn_item, set_hazards
 
@@ -43,6 +46,8 @@ class Simulation:
         self.field = RepellentField(cfg.arena_size, cfg.grid_cell)
         self.maps = (np.zeros((cfg.n_robots, self.field.n, self.field.n))
                      if cfg.controller in PERSONAL else None)  # C5: maps[i] is robot i's own map
+        self.records = (SightingRecords(cfg.n_robots, self.field, cfg.deposit_amount, cfg.deposit_sigma)
+                        if cfg.controller in RECORDS else None)  # C6
         self.hazard_mask = hazard_mask(self.world, self.field)
         self.auc_series: list[float] = []
         n = cfg.n_robots
@@ -85,6 +90,8 @@ class Simulation:
             self._mark()
         elif self.cfg.controller in PERSONAL:
             self._mark_personal()
+        elif self.cfg.controller in RECORDS:
+            self._mark_records()
         self._false_sightings(false_draw)
         if self.cfg.controller in MARKING:
             self.field.decay(self.cfg.decay)
@@ -93,6 +100,8 @@ class Simulation:
         self.t += 1
         if self.cfg.controller in PERSONAL and self.t % self.cfg.share_every == 0:
             self._share()
+        if self.cfg.controller in RECORDS and self.t % self.cfg.share_every == 0:
+            self.records.share(self.swarm.alive, self.swarm.pos, self.cfg.comm_range)
         if self.cfg.controller in MAPPED and self.t % self.cfg.metric_every == 0:
             self.auc_series.append(field_auc(self._map_for_metrics(), self.hazard_mask))
 
@@ -109,6 +118,8 @@ class Simulation:
         self.hazard_mask = hazard_mask(self.world, self.field)
 
     def _map_for_metrics(self) -> np.ndarray:
+        if self.records is not None:
+            return self.records.mean_map(self.swarm.alive, self.t, self.cfg.decay)
         if self.maps is None:
             return self.field.grid
         live = self.swarm.alive
@@ -131,7 +142,8 @@ class Simulation:
 
         dead = np.flatnonzero(~sw.alive)
         steer = unit(sw.heading) + avoidance(cfg, sw.pos, sw.pos[dead], self.field, self.world,
-                                             detected=self._detected[:, dead], maps=self.maps)
+                                             detected=self._detected[:, dead], maps=self.maps,
+                                             records=self.records, t=self.t)
         sw.heading[:] = np.where(sw.alive, np.arctan2(steer[:, 1], steer[:, 0]), sw.heading)
 
     def _move(self, alive: np.ndarray) -> None:
@@ -232,6 +244,16 @@ class Simulation:
                 self.maps[i, sx, sy] += values
         self.seen[:, dead] |= visible
 
+    def _mark_records(self) -> None:
+        sw = self.swarm
+        if sw.alive.all():
+            return
+        dead, visible, new = self._new_sightings()
+        for i, col in zip(*np.nonzero(new)):
+            j = int(dead[col])
+            self.records.add(("wreck", j), sw.pos[j], int(i), self.t)
+        self.seen[:, dead] |= visible
+
     def _share(self) -> None:
         """Synchronous one-hop exchange: each live robot keeps the cell-wise max of its map
         and the maps its live neighbours held before this exchange."""
@@ -262,6 +284,9 @@ class Simulation:
                 if b is not None:
                     sx, sy, values = b
                     self.maps[i, sx, sy] += values
+        elif cfg.controller in RECORDS:
+            for i in np.flatnonzero(phantom):
+                self.records.add(("phantom", self.t, int(i)), sw.pos[i].copy(), int(i), self.t)
 
     def result(self) -> dict:
         out = {
@@ -278,6 +303,8 @@ class Simulation:
             "auc_series": ";".join(f"{a:.4f}" for a in self.auc_series),
             "hazard_area": float(self.hazard_mask.sum() * self.cfg.grid_cell ** 2),
         }
+        if self.records is not None:
+            out["known_frac"] = self.records.known_frac(self.swarm.alive)
         if self.cfg.hazard_move_step >= 0:
             pre = self._pre or {"delivered_pre": self.delivered, "lost_pre": out["robots_lost"],
                                 "auc_pre": float("nan")}

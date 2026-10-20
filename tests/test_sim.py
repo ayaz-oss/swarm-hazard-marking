@@ -385,3 +385,11 @@ def test_oracle_escapes_a_hazard_that_appears_on_top_of_it():
         inside.append(int(in_hazard(sim.world, sim.swarm.pos).sum()))
     assert inside[0] > 0 and inside[-1] == 0
     assert all(b <= a for a, b in zip(inside, inside[1:]))  # once out, never back in
+
+
+def test_c6_phantom_sightings_become_records():
+    sim = new_sim(controller="C6", q_false=1.0, comm_range=0.0)
+    sim.step()
+    assert sim.false_sightings == len(sim.swarm.pos)
+    assert sim.records.know.shape[1] == len(sim.swarm.pos)
+    assert np.array_equal(sim.records.know, np.eye(len(sim.swarm.pos), dtype=bool))
