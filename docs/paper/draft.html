@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lost Teammates as Hazard Sensors (draft)</title>
+<style>
+  @page { size: A4; margin: 22mm 20mm 22mm 20mm; }
+  body { font-family: "Times New Roman", Georgia, serif; font-size: 11pt; line-height: 1.42; color: #111; background: #fff; max-width: 170mm; margin: 0 auto; }
+  h1 { font-size: 17pt; text-align: center; margin: 0 0 6pt; line-height: 1.25; }
+  .authors { text-align: center; margin: 0 0 2pt; }
+  .affil { text-align: center; font-size: 9.5pt; color: #333; margin: 0 0 4pt; }
+  .draft { text-align: center; font-size: 9pt; color: #a00; margin: 0 0 14pt; letter-spacing: .02em; }
+  .abstract { margin: 0 8mm 14pt; font-size: 10pt; }
+  .abstract p { margin: 0; text-align: justify; }
+  .keywords { margin: 6pt 8mm 16pt; font-size: 9.5pt; }
+  h2 { font-size: 12.5pt; margin: 16pt 0 5pt; }
+  h3 { font-size: 11pt; margin: 11pt 0 4pt; font-style: italic; font-weight: bold; }
+  p { margin: 0 0 7pt; text-align: justify; }
+  ul, ol { margin: 0 0 7pt; padding-left: 18pt; }
+  li { margin-bottom: 2pt; }
+  table { border-collapse: collapse; margin: 6pt auto 4pt; font-size: 9.2pt; }
+  th, td { border-top: 1px solid #999; border-bottom: 1px solid #999; padding: 2.5pt 5pt; text-align: center; vertical-align: top; }
+  th { background: #f1f1f1; }
+  td.l, th.l { text-align: left; }
+  .cap { font-size: 9.2pt; margin: 2pt 4mm 10pt; text-align: justify; }
+  figure { margin: 8pt 0 10pt; page-break-inside: avoid; text-align: center; }
+  figure img { max-width: 100%; }
+  figure.half img { max-width: 62%; }
+  figcaption { font-size: 9.2pt; text-align: justify; margin: 3pt 4mm 0; }
+  .tablewrap { page-break-inside: avoid; }
+  .refs p { text-align: left; padding-left: 16pt; text-indent: -16pt; font-size: 9.5pt; margin-bottom: 3pt; }
+  .note { font-size: 9.5pt; color: #333; }
+  .exp { font-variant: small-caps; }
+</style>
+</head>
+<body>
+
+<h1>Lost Teammates as Hazard Sensors:<br>Stigmergic Marking of Robot Failures in a Foraging Swarm</h1>
+<p class="authors">Ayaz [Surname]</p>
+<p class="affil">Dean Close School, Cheltenham, United Kingdom</p>
+<p class="draft">WORKING DRAFT, 20 October 2026. Not peer reviewed. Please do not circulate or cite.</p>
+
+<div class="abstract"><p><b>Abstract.</b> Robots that explore unmapped environments are often lost to hazards that their sensors cannot detect. Swarm robotics usually treats such losses as damage to be tolerated. We ask whether a decentralised foraging swarm with only local sensing can instead use the failures of its teammates as information about where the hazard is. In our controller, a robot that comes across the wreck of a teammate deposits a decaying repellent mark in a shared field, analogous to the "no entry" pheromone of Pharaoh ants, and robots steer down its gradient. We compare this controller with swarms that ignore wrecks, avoid only wrecks in view, add a risk trade-off, keep per-robot maps, or know the hazard (an oracle), in a simulated 20-robot central-place foraging task. Four hypotheses and the analysis were pre-registered, and runs are paired by random seed (16,200 runs in total). Marking delivered more items than ignoring the hazard (median paired difference +3 items of about 45; A12 = 0.66, Holm p = 5.0×10<sup>−11</sup>) and lost fewer robots than avoiding visible wrecks alone (A12 = 0.79, Holm p = 1.7×10<sup>−14</sup>). In a control with random failures and no hazard, it showed no measurable cost (lower bootstrap bound of A12 = 0.52, above the 0.36 margin). A risk-weighted variant showed no detectable benefit. In exploratory sweeps, the number of robots saved grew with swarm size (with 80 robots, 3 were lost against 19 for the swarm that ignores wrecks). The effect persisted under strong and correlated detection misses, and was reduced, but not removed, when the hazard moved. We also report a side effect of the foraging model that inflates deliveries when marks fall near the nest. Code, configurations and raw results are released for exact re-runs.</p></div>
+<p class="keywords"><b>Keywords:</b> swarm robotics; stigmergy; foraging; fault tolerance; hazard localisation; virtual pheromones; pre-registration</p>
+
+<h2>1&nbsp;&nbsp;Introduction</h2>
+<p>Robot swarms are proposed for search and rescue, mine clearance and planetary exploration: places where the environment is unknown and may be dangerous. Many dangers there are invisible to the cheap, short-range sensors that swarm robots carry: an unstable floor, a radiation source, soft ground, a region that interferes with electronics. Often the first sign of such a hazard is that a robot stops working.</p>
+<p>Swarm robotics usually responds to failures with tolerance. A swarm is valued because it degrades gracefully: losing a few members does not stop the task. Fault-detection work asks whether robots can notice that a teammate has failed, in order to protect the swarm's health [2, 5]. But a failure that happens in a particular place is also a measurement of that place. If robots die where the hazard is, the positions of the dead robots form a map of the hazard that nobody had to sense directly.</p>
+<p>Social insects use a related trick. Pharaoh ants mark unrewarding branches of their trail network with a repellent "no entry" pheromone [9], and repellent virtual pheromones have been studied in robot swarms [6]. Here we combine the two ideas. A robot that comes across a teammate's wreck deposits a decaying repellent mark around it, in the spirit of stigmergy (coordination through traces left in the environment), and every robot steers away from strong marks. No robot plans, no robot holds a global map, and the hazard is never sensed directly.</p>
+<p>We ask: <i>can a decentralised foraging swarm, using only local sensing, localise an unknown hazard from teammates failing near it, and how much foraging and how many robots does that save compared with swarms that merely tolerate failures?</i></p>
+<p>Our contributions are:</p>
+<ol>
+<li>A minimal failure-marking controller for central-place foraging, plus five comparison controllers that each isolate one ingredient: memory, a risk trade-off, an oracle reference, and two decentralised ways of holding the marks.</li>
+<li>A pre-registered evaluation with statistics paired by seed, and a random-failure control that measures the cost of marking when wrecks carry no information about place.</li>
+<li>Exploratory sweeps over hazard placement, swarm size, lethality, hazard size, the information medium, detection noise and a moving hazard. They include an honest account of an unexpected side effect of the foraging model.</li>
+<li>An open, reproducible pipeline: seeded independent random streams, provenance on every result row, and bit-exact regression tests across code versions.</li>
+</ol>
+<p>We do not claim to be the first to treat robot loss as a hazard signal. Our claim is narrower: losses can be turned into decaying stigmergic marks that need no planning or global map, inside a decentralised foraging task, with an explicit trade-off between items delivered and robots lost.</p>
+
+<h2>2&nbsp;&nbsp;Related work</h2>
+<p><b>Stigmergy and repellent pheromones.</b> Repellent trail pheromones in Pharaoh ants [9] inspire our marking rule. In robot swarms, virtual pheromones are usually implemented as a shared field that agents read locally. Hunt, Jones and Hauert [6] tested the limits of pheromone stigmergy in high-density robot swarms and found that its benefit can degrade as density rises. This motivates our swarm-size sweep (Section 6.2).</p>
+<p><b>Faults and failures in swarms.</b> Work on fault detection asks how robots identify failed teammates [2, 5]. Hunt, Cullen and Hauert study "value at risk" swarms, in which robots warn their neighbours before failing [7]. In both, the failure is a problem for the swarm. Neither uses the place of a failure to map an environmental hazard.</p>
+<p><b>Risk-aware multi-robot exploration.</b> Aguirre et al. [1] study a swarm that chooses the safer of two areas from hazard event rates; it does no foraging and makes no inference from lost teammates. Srivastava, Suresh and Nieto-Granda [10] map hazards with multiple robots using planning. This is the closest work we know of, but it is centralised planning rather than stigmergic foraging.</p>
+<p>To our knowledge, no previous study infers hazard location from lost teammates through purely local, decentralised marking during foraging, and quantifies both the items and the robots it saves.</p>
+
+<h2>3&nbsp;&nbsp;Model</h2>
+<h3>3.1&nbsp;&nbsp;World</h3>
+<p>The world is a two-dimensional, continuous, walled arena of 10&nbsp;m × 10&nbsp;m. A circular nest of radius 0.75&nbsp;m sits at the centre, and four circular item patches (radius 0.75&nbsp;m, 10 items each) sit at (2.5, 2.5), (7.5, 2.5), (2.5, 7.5) and (7.5, 7.5)&nbsp;m (Fig.&nbsp;1). A collected item reappears uniformly at random within its own patch, so the resource distribution is stationary. Time advances in steps of 0.1&nbsp;s. A run lasts 10,000 steps, about 17 simulated minutes.</p>
+<p>A hazard is a disc that robots cannot see. Each step a robot spends inside it, the robot fails with probability <i>p</i> (the lethality). At baseline there is one hazard of radius 1&nbsp;m with <i>p</i> = 0.02, placed next to the patch at (7.5, 7.5). A failed robot becomes a <i>wreck</i>: static, permanent, and detectable by any robot within the sensing range.</p>
+
+<figure class="half"><img src="../../results/figures/fig1_arena.png" alt="Arena schematic">
+<figcaption><b>Fig. 1.</b> The arena, with the nest (blue), four item patches (green) and the hazard positions used (red circles, radius 1&nbsp;m). Solid: baseline position next to a patch (E1, E3, E4, E6, E7). Dashed: E2's "between patch and nest" and "far" positions. Dotted: the position the hazard moves to in E8. E5 varies the radius around the baseline position.</figcaption></figure>
+
+<h3>3.2&nbsp;&nbsp;Robots</h3>
+<p>Robots are point agents with an e-puck-like speed of 0.1&nbsp;m/s and a sensing range of 0.5&nbsp;m for items and wrecks. They always know the direction of the nest (as with a light beacon). There are no robot–robot collisions, a limitation discussed in Section 7. All controllers share one finite-state machine. In SEARCH a robot does a correlated random walk. When it senses an item it approaches and picks it up. In RETURN it heads home, drops the item at the nest, and goes back to SEARCH. The controllers differ only in how they respond to wrecks and marks.</p>
+
+<h3>3.3&nbsp;&nbsp;Controllers</h3>
+<div class="tablewrap"><table>
+<tr><th>ID</th><th class="l">Name</th><th class="l">Response to wrecks</th></tr>
+<tr><td>C0</td><td class="l">Ignore</td><td class="l">None: wrecks do not affect behaviour.</td></tr>
+<tr><td>C1</td><td class="l">Avoid wrecks</td><td class="l">Local repulsion from wrecks currently in view; no memory, no marking.</td></tr>
+<tr><td>C2</td><td class="l">Mark (main method)</td><td class="l">C1 plus marking: the first time a robot sees a given wreck, it adds a Gaussian bump to a shared repellent grid (0.1&nbsp;m cells) that decays every step. Robots steer down the field's local gradient in SEARCH and RETURN.</td></tr>
+<tr><td>C3</td><td class="l">Mark + risk trade-off</td><td class="l">C2 with the repellent push scaled by 1/(1 + <i>k</i>·<i>n</i>), where <i>n</i> is the number of items in view.</td></tr>
+<tr><td>C4</td><td class="l">Oracle</td><td class="l">Cannot enter the hazard; slides along its edge. A reference, not a swarm method.</td></tr>
+<tr><td>C5</td><td class="l">Per-robot maps</td><td class="l">Each robot marks its own map; every 1&nbsp;s it takes the cell-wise maximum with the maps of live robots within 1&nbsp;m. Uses C2's parameters, untuned.</td></tr>
+<tr><td>C6</td><td class="l">Shared sighting records</td><td class="l">Each robot keeps the sighting records it knows of, exchanging them by set union with robots within 1&nbsp;m every 1&nbsp;s. Its map is the sum of decayed bumps over the records it knows, so with full propagation it equals C2's field.</td></tr>
+</table></div>
+<p class="cap"><b>Table 1.</b> Controllers. C1 versus C2 isolates the value of remembering where wrecks are. C2 versus C6 changes only where the information is held, and C6 versus C5 changes only how marks are combined (sum versus maximum).</p>
+
+<h3>3.4&nbsp;&nbsp;Detection noise and hazard movement</h3>
+<p>For the noise experiments, a robot misses a wreck in range with probability <i>q</i><sub>miss</sub>, either independently each step or in "blind spells" of a given mean length (correlated misses). Separately, each live robot has a "false sighting" of a non-existent wreck at its own position with probability <i>q</i><sub>false</sub> per step. The marking controllers deposit a mark at a false sighting. In the moving-hazard experiment, the hazard is replaced at step 5,000 by one at another position. Wrecks and marks stay where they are.</p>
+
+<h2>4&nbsp;&nbsp;Methods</h2>
+<h3>4.1&nbsp;&nbsp;Metrics</h3>
+<p>The primary metric is <i>items delivered</i> to the nest per run. The secondary metrics are <i>robots lost</i>; <i>items per robot lost</i> (total items over total robots lost, per controller and condition); and the <i>localisation AUC</i> of the repellent field. The AUC is the area under the ROC curve that ranks grid cells by repellent value against the true hazard mask. It is 0.5 for an empty or uninformative field and 1.0 for a perfect one; for C5 and C6 it is computed on the mean of the live robots' maps.</p>
+
+<h3>4.2&nbsp;&nbsp;Experiments</h3>
+<div class="tablewrap"><table>
+<tr><th>Exp.</th><th class="l">Factor</th><th class="l">Levels</th><th>Controllers</th><th>Runs</th></tr>
+<tr><td>E1</td><td class="l">Baseline</td><td class="l">—</td><td>C0–C4</td><td>500</td></tr>
+<tr><td>E2</td><td class="l">Hazard placement</td><td class="l">next to patch; between patch and nest; far; none (random failures)</td><td>C0–C4</td><td>2,000</td></tr>
+<tr><td>E3</td><td class="l">Swarm size</td><td class="l">5, 10, 20, 40, 80 robots</td><td>C0–C4</td><td>2,500</td></tr>
+<tr><td>E4</td><td class="l">Lethality <i>p</i></td><td class="l">0.005, 0.02, 0.1, 1.0 per step</td><td>C0–C4</td><td>2,000</td></tr>
+<tr><td>E5</td><td class="l">Hazard radius</td><td class="l">0.5, 1, 2&nbsp;m</td><td>C0–C4</td><td>1,500</td></tr>
+<tr><td>E6</td><td class="l">Information medium</td><td class="l">5–80 robots</td><td>C2, C5</td><td>1,000</td></tr>
+<tr><td>E7</td><td class="l">Detection noise (mild)</td><td class="l">(<i>q</i><sub>miss</sub>, <i>q</i><sub>false</sub>) ∈ {(0,0), (0.2,0), (0,10<sup>−5</sup>), (0.2,10<sup>−5</sup>)}</td><td>C0–C3</td><td>1,600</td></tr>
+<tr><td>E6b</td><td class="l">Medium, one factor at a time</td><td class="l">5–80 robots</td><td>C2, C5, C6</td><td>1,500</td></tr>
+<tr><td>E7b</td><td class="l">Detection noise (strong), paired cells</td><td class="l">none; miss 0.5; miss 0.8; miss 0.5 and 0.8 in 10&nbsp;s spells; <i>q</i><sub>false</sub> = 10<sup>−4</sup></td><td>C0–C3</td><td>2,400</td></tr>
+<tr><td>E8</td><td class="l">Hazard moves at 500&nbsp;s</td><td class="l">static; moved (decay 0.0002); moved (decay 0.002)</td><td>C0, C1, C2, C4</td><td>1,200</td></tr>
+</table></div>
+<p class="cap"><b>Table 2.</b> Experiments. Each condition (cell) has 100 seeds, and every controller in a cell runs on the same seeds. Experiments are one-factor-at-a-time sweeps around the baseline (20 robots, one 1&nbsp;m hazard next to a patch, <i>p</i> = 0.02). In E7b and E8 all cells also share their random streams, so cells differ only in the factor varied. Total: 16,200 runs.</p>
+
+<h3>4.3&nbsp;&nbsp;Random-failure control</h3>
+<p>To measure the cost of marking when wrecks carry no information about place, E2's fourth cell has no hazard. Instead, every live robot fails independently with probability <i>q</i> = 2.66×10<sup>−5</sup> per step, anywhere in the arena. This value matches C0's mean baseline losses in a pilot (4.67 of 20 robots per run): <i>q</i> = 1 − (1 − 4.67/20)<sup>1/10,000</sup>. Random failures use their own random stream, so all other randomness is the same as in runs without them.</p>
+
+<h3>4.4&nbsp;&nbsp;Parameter tuning</h3>
+<p>C2's repulsion weight, deposit width and decay rate, and C3's risk constant <i>k</i>, were tuned by grid search at the baseline configuration, on seeds disjoint from all main experiments, using a pre-registered rule: highest median items delivered, with ties broken by lowest mean robots lost. The chosen values were repulsion weight 0.5, deposit width (σ) 0.3&nbsp;m, decay 0.0002 per step and <i>k</i> = 0.5. The landscape was flat: the spread of cell means (SD 1.09 items) matched what seed noise alone predicts (SE 1.13). C2's performance is therefore insensitive to these parameters over the grid tested.</p>
+
+<h3>4.5&nbsp;&nbsp;Statistics</h3>
+<p>All comparisons are paired by seed. The confirmatory tests are one-sided Wilcoxon signed-rank tests on per-seed differences [11], with zero differences handled by Pratt's method [8], and Holm correction [4] across H1, H2 and H4 at α = 0.05. H3 is a non-inferiority bound, decided only by the bootstrap confidence interval. Effect sizes are Vargha–Delaney A12 [12]: the probability that a run of the first controller scores higher than a run of the second, with ties counting half (0.5 means no difference). Confidence intervals are 95% percentile bootstrap intervals [3] with 10,000 resamples, resampling seeds so that pairing is kept. Exploratory analyses use a Friedman test per cell, two-sided Wilcoxon tests against C2, and Holm correction within each experiment. We report "no detectable difference" rather than equivalence.</p>
+
+<h3>4.6&nbsp;&nbsp;Pre-registration and deviations</h3>
+<p>The hypotheses, metrics, statistics and experiment levels were committed to the project repository before any main experiment ran. Later experiments (E6–E8) were added as dated exploratory sections before their data existed. Deviations are listed in Appendix A. The most important are these: a pilot go/no-go check narrowly missed its threshold (A12 = 0.629 against 0.64) and we proceeded by a recorded decision; and the confirmatory test changed from Mann–Whitney U to the paired Wilcoxon test before the main experiments, because the design pairs runs by seed.</p>
+
+<h3>4.7&nbsp;&nbsp;Reproducibility</h3>
+<p>Each run draws from independent random streams (layout, motion, item respawn, hazard, random failures, noise), seeded by experiment, cell and seed. Every result row records the code commit, package versions and import path. Experiments run after code changes ran from a frozen copy of the repository. They were accepted only if every regression ("golden") test case recorded at E1's commit reproduced bit-identically, which pins the behaviour of C0–C5 across versions. Exact re-runs are claimed on the same machine and software environment; across machines we expect statistical, not bitwise, agreement.</p>
+
+<h2>5&nbsp;&nbsp;Results: pre-registered hypotheses</h2>
+<div class="tablewrap"><table>
+<tr><th></th><th class="l">Claim</th><th>Medians</th><th>Paired diff. [95% CI]</th><th>A12 [95% CI]</th><th>Holm <i>p</i></th><th>Verdict</th></tr>
+<tr><td>H1</td><td class="l">C2 delivers more items than C0 (E1)</td><td>45 vs 42</td><td>3 [1.5, 4]</td><td>0.661 [0.620, 0.706]</td><td>5.0×10<sup>−11</sup></td><td>Supported</td></tr>
+<tr><td>H2</td><td class="l">C2 loses fewer robots than C1 (E1)</td><td>2 vs 3</td><td>1 [1, 1]</td><td>0.789 [0.742, 0.835]</td><td>1.7×10<sup>−14</sup></td><td>Supported</td></tr>
+<tr><td>H3</td><td class="l">C2's item cost vs C0 is small with random failures (E2)</td><td>45 vs 43</td><td>1 [0, 2.5]</td><td>0.582 [0.519, 0.646]</td><td>CI rule</td><td>Supported</td></tr>
+<tr><td>H4</td><td class="l">C3 delivers more items than C2 (E1)</td><td>45 vs 45</td><td>0 [0, 0]</td><td>0.503 [0.499, 0.510]</td><td>0.156</td><td>Not supported</td></tr>
+</table></div>
+<p class="cap"><b>Table 3.</b> Confirmatory results (100 seeds each). The paired difference is the first-named controller minus the second (C1 − C2 for H2). For H2, A12 is A12(C1, C2) on robots lost. H3 is supported if the lower bound of A12(C2, C0) exceeds 0.36.</p>
+
+<p><b>H1: marking helps foraging, modestly.</b> C2 delivered a median of 3 more items per seed than C0, out of about 45. C2 delivered more on 71 seeds, tied on 15 and delivered fewer on 14.</p>
+<p><b>H2: marking saves robots beyond what avoidance does.</b> This was the clearest result. C2 lost fewer robots than C1 on 73 seeds, tied on 23 and lost more on 4. C1 avoids a wreck only while it is within 0.5&nbsp;m. C2's mark stays in place and covers the area around the wreck, so remembering where teammates died is worth more than reacting to the wrecks currently in view.</p>
+<p><b>H3: no measurable cost in the random-failure control.</b> With no hazard, C2 did not deliver fewer items than C0. If anything it was slightly ahead, and the lower bound of A12 (0.519) is well above the 0.36 margin. Section 6.8 shows that part of this lead probably comes from a side effect of the foraging model, so we read H3 strictly as a bound on cost, not as a benefit.</p>
+<p><b>H4: risk weighting showed no detectable benefit.</b> At the tuned <i>k</i> = 0.5, C3 delivered exactly the same number of items as C2 on 96 of 100 seeds, so the test had little power. This is not evidence that a risk trade-off is useless at other settings.</p>
+<p>In the descriptive E1 results, the median items delivered by C0–C4 were 42, 43, 45, 45 and 48, and the median robots lost were 5, 3, 2, 2 and 0 (Fig.&nbsp;2). Items per robot lost rose from 8.4 (C0) and 13.7 (C1) to 21.9 (C2). On items delivered, C2 closes half of the gap between ignoring the hazard and the oracle.</p>
+
+<figure><img src="../../results/figures/e1_baseline.png" alt="E1 baseline results">
+<figcaption><b>Fig. 2.</b> Baseline (E1, 100 seeds). Items delivered (left) and robots lost (right) for C0–C4; each dot is one seed.</figcaption></figure>
+
+<p><b>The repellent map localises the hazard.</b> At the end of a run, C2's median localisation AUC was 0.796 (interquartile range 0.723–0.859), from robots that never sensed the hazard (Fig.&nbsp;3). The median curve sits at exactly 0.5 for about the first 300&nbsp;s and then jumps. A descriptive check on 30 seeds explains this shape. The median over runs stays at 0.5 until half of the runs contain any mark. Within a run, the AUC rises within 1&nbsp;s of the first mark. The delay is therefore between a robot's death and a teammate first coming close enough to see its wreck: a median of 114&nbsp;s.</p>
+
+<figure><img src="../../results/figures/e1_auc_over_time.png" alt="AUC over time">
+<figcaption><b>Fig. 3.</b> Localisation AUC of the repellent field over time (E1; median and interquartile band). C3 lies exactly on C2. The flat start reflects the median over runs: it stays at 0.5 until half of the runs contain a mark.</figcaption></figure>
+
+<h2>6&nbsp;&nbsp;Results: exploratory</h2>
+<p class="note">Everything in this section is exploratory: tests are two-sided Wilcoxon tests against C2 with Holm correction within each experiment, and explanations are labelled as candidates unless the numbers show them directly.</p>
+
+<h3>6.1&nbsp;&nbsp;Hazard placement (E2)</h3>
+<p>Placement mattered most for the controllers without memory (Fig.&nbsp;4). When the hazard sat between a patch and the nest, on a path the swarm uses constantly, C0 collapsed to a median of 17 items, with 17 of 20 robots lost. C1 reached 32 items and lost 9. C2 delivered 42 items and lost 4.5, against the oracle's 46 items. Here C2's map was almost perfect (median AUC 0.970). Next to a patch and far from everything, the gaps were small (C0 42 and 44 items; C2 44 and 46). C2 delivered more than C0 in all three hazard cells (Holm <i>p</i> ≤ 7.4×10<sup>−5</sup>).</p>
+<figure><img src="../../results/figures/e2_placement.png" alt="E2 placement">
+<figcaption><b>Fig. 4.</b> Hazard placement (E2). Items delivered (top) and robots lost (bottom) for each placement. In the no-hazard cell, robots lost is identical across controllers by design, because random failures share one random stream.</figcaption></figure>
+
+<h3>6.2&nbsp;&nbsp;Swarm size (E3)</h3>
+<p>The robots saved by marking grew with swarm size (Fig.&nbsp;5). The median robots lost at 5, 10, 20, 40 and 80 robots were 1, 2, 5, 9 and 19 for C0; 1, 2, 3, 4 and 6 for C1; and 1, 1, 2, 3 and 3 for C2. At 80 robots, C2 delivered 164.5 items against C0's 150, and items per robot lost were 54.7 against 7.9. At 5 robots there was no difference (12 items for C0–C3): too few robots witness a loss, and only 31 of 100 C2 runs ever marked anything. Unlike the density-related degradation of pheromone stigmergy reported by Hunt et al. [6], we saw no degradation up to 80 robots in this arena.</p>
+<figure><img src="../../results/figures/e3_sweep.png" alt="E3 swarm size">
+<figcaption><b>Fig. 5.</b> Swarm size (E3): medians with interquartile bands against the number of robots (log axis).</figcaption></figure>
+
+<h3>6.3&nbsp;&nbsp;Lethality (E4)</h3>
+<p>C2 was nearly flat across lethality from 0.005 to 1.0 per step (median items delivered 46, 44, 44.5, 45; median robots lost 2). C0's mean losses rose from 3.52 to 5.42 between <i>p</i> = 0.005 and 0.1, then levelled off (5.08 at <i>p</i> = 1.0). A descriptive check (C0, 20 seeds per level) supports a saturation account. At <i>p</i> = 0.1 and 1.0, 0.992 and 1.000 of the robots that entered the hazard were lost. Above 0.1, losses are therefore limited by how many robots enter, not by how lethal the hazard is.</p>
+
+<h3>6.4&nbsp;&nbsp;Hazard size (E5)</h3>
+<p>Against the hazard's area inside the arena (0.75, 3.18 and 8.23&nbsp;m², since the 2&nbsp;m hazard is clipped by the wall), C0's median losses rose from 2 to 5 to 8 and its deliveries fell to 38. C2 lost 1, 2 and 2 robots and delivered 46, 44.5 and 43, while the oracle stayed at 49–50 (Fig.&nbsp;6). C2's AUC fell with area (0.995, 0.785, 0.666). A candidate reading is that marks cluster at the hazard's edge, where robots die, and leave its interior unmarked.</p>
+<figure><img src="../../results/figures/e5_sweep.png" alt="E5 hazard size">
+<figcaption><b>Fig. 6.</b> Hazard size (E5): medians with interquartile bands against the in-arena hazard area.</figcaption></figure>
+
+<h3>6.5&nbsp;&nbsp;Where the information is held (E6, E6b)</h3>
+<p>A real robot swarm may not have a shared field. In E6, per-robot maps with local exchange (C5) showed no detectable difference from C2 at any swarm size after Holm correction (one raw <i>p</i> = 0.033 at 40 robots became Holm <i>p</i> = 0.33). C5, however, differs from C2 in two ways: where the information is held, and how marks combine (maximum versus sum). E6b separates the two with C6, which differs from C2 only in the medium. Neither factor showed a detectable effect. C6 versus C2 and C6 versus C5 were null at every swarm size (all 30 tests had Holm <i>p</i> ≥ 0.43; A12 of C6 versus C2 on items delivered was 0.493–0.504). A likely reason, not tested, is that the sighting records reached nearly every robot. The median fraction of records known at the end was 1.0 for 10–40 robots and 0.997 for 80, with means of 0.75–0.96. So in our 10&nbsp;m arena with 1&nbsp;m communication, C6 often became C2. A larger arena or shorter communication range could change this.</p>
+
+<h3>6.6&nbsp;&nbsp;Detection noise (E7, E7b)</h3>
+<p>Under the mild noise of E7, the within-cell pattern held in every cell: C2 lost fewer robots than C1 and C0, and C3 showed no detectable difference from C2. E7's misses were independent at each step, so they mostly delayed detection. E7b therefore used much stronger misses (0.5 and 0.8), misses correlated in 10&nbsp;s blind spells (about the time a robot needs to cross a wreck's sensing disc), and identical layouts in every cell (Fig.&nbsp;7). Within every cell, C2 still lost fewer robots than C0 (A12 0.87–0.92, Holm <i>p</i> ≤ 2.0×10<sup>−14</sup>) and C1 (A12 0.70–0.85, Holm <i>p</i> ≤ 1.8×10<sup>−5</sup>). Because the cells are paired, we can also compare across noise levels. C1 lost detectably more robots under strong or correlated misses (A12 up to 0.69 for 80% misses in spells). C2's losses shifted only slightly, and only in the harshest cell (equal medians; A12 = 0.60, Holm <i>p</i> = 2.9×10<sup>−4</sup>). Its deliveries showed no detectable change in any miss cell. A candidate explanation is that C1 must see a wreck at every step to avoid it, whereas C2 needs to see it only once to mark it.</p>
+<figure><img src="../../results/figures/e7b_noise.png" alt="E7b noise">
+<figcaption><b>Fig. 7.</b> Strong and correlated detection noise (E7b; all cells share layouts). The rise in C2 and C3 deliveries in the false-sighting cell is discussed in Section 6.8.</figcaption></figure>
+
+<h3>6.7&nbsp;&nbsp;A moving hazard (E8)</h3>
+<p>With a static hazard, old marks are never wrong, so the field's decay had nothing to do. In E8 the hazard jumps to the opposite side of the nest at 500&nbsp;s (Fig.&nbsp;8). A move cost C2 robots: in the second half of the run its median robots lost was 2 against 0 when the hazard stayed (A12 = 0.86, Holm <i>p</i> = 4.9×10<sup>−14</sup>). It still lost fewer robots than C0 (median 3; Holm <i>p</i> = 3.9×10<sup>−8</sup>) and C1. The map partly relearned the new position: the median AUC against the new hazard was 0.722 at the end, against 0.768 for the static cell, while the old position was still visible (AUC 0.744 against the old mask). A tenfold faster decay (half-life about 35&nbsp;s instead of 347&nbsp;s) showed no detectable difference on any tested metric. The oracle lost almost no robots, so there is room for improvement.</p>
+<figure><img src="../../results/figures/e8_move.png" alt="E8 moving hazard">
+<figcaption><b>Fig. 8.</b> Moving hazard (E8): results after the move at 500&nbsp;s, for a static hazard and for a moved hazard with tuned and fast decay.</figcaption></figure>
+
+<h3>6.8&nbsp;&nbsp;A side effect of the foraging model: marks near the nest</h3>
+<p>One result in E7b was unexpected. With ten times more false sightings (<i>q</i><sub>false</sub> = 10<sup>−4</sup>, about 19 per run), C2 delivered far <i>more</i> items: a median of 51.5 against 45 with no noise (paired difference +7; A12 = 0.76, Holm <i>p</i> = 3.0×10<sup>−8</sup>). Its map got worse (AUC 0.618 against 0.765). A small descriptive diagnostic, which was not pre-registered (20 seeds), points to the nest. Robots spend about 38% of their time within 1.5&nbsp;m of the nest, an area covering 7% of the arena. Since a false sighting happens where a robot is, about 28% of the phantom repellent ended up there. Robots then spent less time near the nest. The gain disappeared when marks did not steer robots, and it appeared without any hazard. Our candidate explanation is that repellent near the nest moves robots out of a crowded area after they deliver. If so, this is a property of our foraging model, not a benefit of noise.</p>
+<p>The same effect bears on H3. We re-ran E2's random-failure cell for C0 and C2 (100 seeds; the results matched the stored runs exactly) and recorded where the wrecks fell. Because robots crowd near the nest, 34% of C2's random wrecks lay within 1.5&nbsp;m of it, and a median of 52% of C2's final repellent sat there. Across seeds, C2's lead over C0 in items delivered correlated with the number of wrecks near the nest (Spearman ρ = 0.39). It was a median of +2 items in the 82 runs with at least one such wreck, against −1 in the 18 runs without one. This analysis was done after the fact and is correlational. It suggests that the slight advantage of C2 in the random-failure control partly reflects this side effect, which may also hide some real cost of false alarms. H3, a one-sided bound on cost, remains supported as pre-registered, but we do not interpret C2's lead there as a benefit of marking.</p>
+
+<h2>7&nbsp;&nbsp;Discussion</h2>
+<p><b>Failures carry information, and using it mainly saves robots.</b> The largest and most consistent effect of marking is on robots lost: H2 at baseline, and in every placement, size, noise and movement condition. The gain in items delivered is modest at baseline (+3 of about 45), but it grows when the hazard lies on a path the swarm must use (E2) and in larger swarms (E3). For a swarm whose members are expensive, or that must keep working for a long time, robots saved may matter more than items delivered.</p>
+<p><b>Memory is the active ingredient.</b> C1 and C2 differ only in whether a wreck leaves a lasting trace. That difference made C2 robust to detection misses in E7b, because one sighting is enough to mark a wreck. It also explains why C2 suffered from a moved hazard in E8: the old marks remain and point at the wrong place. Faster decay did not help at the one value tested. This may be because the localisation AUC, being rank-based, is insensitive to uniform decay, but we did not test that.</p>
+<p><b>No shared field is needed.</b> In E6 and E6b, keeping marks in each robot's own memory and exchanging them with neighbours showed no detectable difference from a shared field. This matters for physical robots, which cannot write to a shared virtual field without infrastructure. The result is limited by our arena size and communication range, where information spread almost fully.</p>
+<p><b>Risk weighting.</b> H4's null result reflects a flat tuning landscape and a gentle risk constant. A scenario where items lie close to the hazard, or a wider range of <i>k</i>, would be a fairer test.</p>
+<p><b>Limitations.</b> Robots are points without collisions, and the only form of crowding is time spent near the nest. The nest side effect in Section 6.8 suggests that our foraging model under-penalises lingering at the nest. A model with collisions could change both the side effect and the size of the main effects. There is one hazard, which is static except in E8. Wreck detection is idealised apart from the noise experiments, and robots always know the direction of the nest. The tuning landscape was flat. C4 is a reference rather than a true optimum. In E1, no carried items were ever lost, so losing a robot cost throughput rather than cargo. All results come from simulation, and bit-exact reproducibility was checked on one machine.</p>
+<p><b>Future work.</b> Replicating the baseline in a physics-based simulator (for example ARGoS or Webots) with collisions; measuring trip times to test the nest-crowding explanation directly; hazards that move repeatedly; a larger arena or shorter communication range for C6; a baseline from the literature, such as warning broadcasts before failure [7]; and other cues of failure, such as loss of a teammate's heartbeat signal.</p>
+
+<h2>8&nbsp;&nbsp;Conclusion</h2>
+<p>A foraging swarm that cannot sense a hazard can still localise it from the wrecks of its teammates. Marking them with decaying repellent produced a map of the hazard (final median AUC about 0.8) and saved robots compared with ignoring wrecks or avoiding only those in view. The saving was larger in bigger swarms and held under strong detection noise. Marking showed no measurable cost when failures were random, although part of its apparent advantage there comes from a side effect of the foraging model, which we report. Failures need not only be absorbed; they can also be read.</p>
+
+<h2>Code and data availability</h2>
+<p>The simulator, experiment configurations, analysis and figure scripts, regression tests, raw results and the pre-registration (with its commit history) will be released in a public repository with an archived DOI on submission. Main experiments ran from commits fe78c66 (E1), 45b4ce5 (E2), 4cf295a (E3–E5), 5d8ca9e (E6–E7) and 37bf380 (E6b, E7b, E8).</p>
+
+<h2>Use of AI tools</h2>
+<p>The simulator and analysis code were written with the help of an AI coding assistant (Claude, Anthropic), under the author's direction. The research question, modelling decisions, pre-registration and interpretation are the author's. Every modelling choice, test and result is documented in the repository.</p>
+
+<h2>References</h2>
+<div class="refs">
+<p>[1] Aguirre et al. (2025). arXiv:2511.22225. [Full author list and title to be added.]</p>
+<p>[2] Christensen, A. L., O'Grady, R., Dorigo, M. (2009). From fireflies to fault-tolerant swarms of robots. <i>IEEE Transactions on Evolutionary Computation</i> 13(4), 754–766.</p>
+<p>[3] Efron, B., Tibshirani, R. J. (1993). <i>An Introduction to the Bootstrap</i>. Chapman &amp; Hall.</p>
+<p>[4] Holm, S. (1979). A simple sequentially rejective multiple test procedure. <i>Scandinavian Journal of Statistics</i> 6(2), 65–70.</p>
+<p>[5] Tarapore, D., Christensen, A. L., Timmis, J. (2017). Generic, scalable and decentralized fault detection for robot swarms. <i>PLoS ONE</i> 12(8), e0182058.</p>
+<p>[6] Hunt, E. R., Jones, S., Hauert, S. (2019). Testing the limits of pheromone stigmergy in high-density robot swarms. <i>Royal Society Open Science</i> 6, 190225.</p>
+<p>[7] Hunt, E. R., Cullen, G., Hauert, S. "Value at risk" swarms. [Venue and year to be verified.]</p>
+<p>[8] Pratt, J. W. (1959). Remarks on zeros and ties in the Wilcoxon signed rank procedures. <i>Journal of the American Statistical Association</i> 54, 655–667.</p>
+<p>[9] Robinson, E. J. H., Jackson, D. E., Holcombe, M., Ratnieks, F. L. W. (2005). 'No entry' signal in ant foraging. <i>Nature</i> 438, 442.</p>
+<p>[10] Srivastava, Suresh, Nieto-Granda (2025). arXiv:2508.04537. [Full title to be added.]</p>
+<p>[11] Wilcoxon, F. (1945). Individual comparisons by ranking methods. <i>Biometrics Bulletin</i> 1(6), 80–83.</p>
+<p>[12] Vargha, A., Delaney, H. D. (2000). A critique and improvement of the CL common language effect size statistics of McGraw and Wong. <i>Journal of Educational and Behavioral Statistics</i> 25(2), 101–132.</p>
+</div>
+
+<h2>Appendix A&nbsp;&nbsp;Deviations from the pre-registration</h2>
+<ol>
+<li>The pilot go/no-go check narrowly missed its threshold (A12 = 0.629 on items delivered against 0.64; robots lost A12 = 0.134). We proceeded by a recorded decision instead of revising the model.</li>
+<li>Confirmatory tests changed from the unpaired Mann–Whitney U test to the paired Wilcoxon signed-rank test, because runs are paired by seed. This change was made before the main experiments.</li>
+<li>H3 was specified as |A12 − 0.5| &lt; 0.14 and is operationalised as a one-sided bound (lower CI bound of A12 above 0.36), because the hypothesis concerns a cost.</li>
+<li>The deposit amount was fixed at 1 and the deposit width was tuned instead, because the repellent push scales with deposit amount × repulsion weight.</li>
+<li>C0 was added to E7 as a reference.</li>
+<li>A clarification of the E6 confound (how C5 combines deposits) was recorded on 2026-10-19, after the E6/E7 batch had started and before any data were examined.</li>
+<li>The diagnostics in Sections 5 (AUC delay), 6.3 (saturation) and 6.8 (nest effect) are descriptive and were not pre-registered as tests. The two in Section 6.8 were designed after the results they examine had been seen.</li>
+</ol>
+
+<h2>Appendix B&nbsp;&nbsp;Additional figures</h2>
+<figure><img src="../../results/figures/e4_sweep.png" alt="E4 lethality"><figcaption><b>Fig. B1.</b> Lethality (E4).</figcaption></figure>
+<figure><img src="../../results/figures/e6b_sweep.png" alt="E6b"><figcaption><b>Fig. B2.</b> Information medium, one factor at a time (E6b): C2, C5 and C6 against swarm size.</figcaption></figure>
+<figure><img src="../../results/figures/e8_auc_over_time.png" alt="E8 AUC"><figcaption><b>Fig. B3.</b> Localisation AUC over time in E8, measured against the old hazard before 500&nbsp;s and the new one after.</figcaption></figure>
+
+</body>
+</html>
