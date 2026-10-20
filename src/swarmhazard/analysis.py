@@ -17,7 +17,7 @@ from swarmhazard.stats import a12
 
 N_BOOT = 10_000
 BOOT_SEED = 20261016
-CONTROLLERS = ["C0", "C1", "C2", "C3", "C4", "C5"]
+CONTROLLERS = ["C0", "C1", "C2", "C3", "C4", "C5", "C6"]
 E2_NONE_CELL = 3
 H3_BOUND = 0.36
 
@@ -159,4 +159,99 @@ def descriptive(df: pd.DataFrame, rng: np.random.Generator, n_boot: int = N_BOOT
             "hazard_area": float(sub["hazard_area"].iloc[0]) if "hazard_area" in sub else float("nan"),
             "false_sightings_mean": float(sub["false_sightings"].mean()) if "false_sightings" in sub else float("nan"),
         })
+    return pd.DataFrame(rows)
+
+
+# Week-5 exploratory families (docs/hypotheses.md, "Week-5 experiments"). Holm runs over every
+# test of one experiment together.
+WEEK5 = {
+    "E6b": {"metrics": ("delivered", "robots_lost"), "pairs": [("C6", "C5")], "cross": []},
+    "E7b": {"metrics": ("delivered", "robots_lost"), "pairs": [],
+            "cross": [(c, k, 0, ("delivered", "robots_lost")) for c in ("C1", "C2", "C3") for k in range(1, 6)]},
+    "E8": {"metrics": ("delivered_post", "lost_post"), "pairs": [],
+           "cross": [("C2", 2, 1, ("delivered_pre", "lost_pre", "delivered_post", "lost_post")),
+                     ("C2", 1, 0, ("delivered_post", "lost_post"))]},
+}
+# Runs that must be identical across paired cells (reported, not tested).
+IDENTITIES = {"E7b": [("C0", (0, 1, 2, 3, 4, 5)), ("C1", (0, 5))],
+              "E8": [("C0", (1, 2)), ("C1", (1, 2)), ("C4", (1, 2))]}
+IDENTITY_COLS = ("delivered", "robots_lost", "first_loss_step", "picked_up")
+
+
+def pairwise(df, pairs, metrics, rng, n_boot=N_BOOT) -> pd.DataFrame:
+    """Within each cell, x vs y for each (x, y) controller pair; two-sided, paired by seed."""
+    rows = []
+    for cell in sorted(df["cell"].unique()):
+        for x_name, y_name in pairs:
+            for metric in metrics:
+                x, y = paired(df, metric, x_name, y_name, cell=cell)
+                row = compare(x, y, rng, n_boot)
+                row.update(kind="pair", cell=int(cell), metric=metric, x=x_name, y=y_name,
+                           p=wilcoxon_p(x, y, "two-sided"), friedman_p=float("nan"))
+                rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def cross_cell(df, controller, cell_x, cell_y, metrics, rng, n_boot=N_BOOT) -> pd.DataFrame:
+    """One controller in two cells of a paired-cell experiment, aligned by seed; two-sided."""
+    sub = df[df["controller"] == controller]
+    rows = []
+    for metric in metrics:
+        wide = sub.pivot(index="seed", columns="cell", values=metric)[[cell_x, cell_y]].dropna().sort_index()
+        x, y = wide[cell_x].to_numpy(float), wide[cell_y].to_numpy(float)
+        row = compare(x, y, rng, n_boot)
+        row.update(kind="cross_cell", cell=int(cell_x), cell_y=int(cell_y), metric=metric,
+                   x=f"{controller}@{cell_x}", y=f"{controller}@{cell_y}",
+                   p=wilcoxon_p(x, y, "two-sided"), friedman_p=float("nan"))
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def week5_tests(name, df, rng, n_boot=N_BOOT) -> pd.DataFrame:
+    spec = WEEK5[name]
+    parts = [exploratory(df, rng, n_boot, metrics=spec["metrics"]).assign(kind="vs_C2")]
+    if spec["pairs"]:
+        parts.append(pairwise(df, spec["pairs"], spec["metrics"], rng, n_boot))
+    for controller, cx, cy, metrics in spec["cross"]:
+        parts.append(cross_cell(df, controller, cx, cy, metrics, rng, n_boot))
+    out = pd.concat(parts, ignore_index=True)
+    out["p_holm"] = holm(out["p"].to_numpy())
+    return out
+
+
+def _marked(series) -> bool:
+    return any(float(v) != 0.5 for v in str(series).split(";") if v not in ("", "nan"))
+
+
+def week5_descriptive(df, rng, n_boot=N_BOOT) -> pd.DataFrame:
+    """descriptive() plus marked-run counts and the week-5 columns that exist in df."""
+    base = descriptive(df, rng, n_boot)
+    extra_cols = [c for c in ("delivered_pre", "lost_pre", "delivered_post", "lost_post",
+                              "auc_pre", "auc_old_final", "known_frac") if c in df]
+    rows = []
+    for (cell, controller), sub in df.groupby(["cell", "controller"]):
+        row = {"cell": int(cell), "controller": controller}
+        row["marked_runs"] = (int(sum(_marked(s) for s in sub["auc_series"].fillna("")))
+                              if "auc_series" in sub else 0)
+        idx = rng.integers(0, len(sub), size=(n_boot, len(sub)))
+        for col in extra_cols:
+            values = sub[col].to_numpy(float)
+            if np.isnan(values).all():
+                row[f"{col}_median"] = row[f"{col}_lo"] = row[f"{col}_hi"] = float("nan")
+                continue
+            row[f"{col}_median"] = float(np.nanmedian(values))
+            row[f"{col}_lo"], row[f"{col}_hi"] = _ci(np.nanmedian(values[idx], axis=1))
+        rows.append(row)
+    return base.merge(pd.DataFrame(rows), on=["cell", "controller"])
+
+
+def identity_checks(name, df) -> pd.DataFrame:
+    rows = []
+    for controller, cells in IDENTITIES.get(name, []):
+        sub = df[df["controller"] == controller]
+        ref = sub[sub["cell"] == cells[0]].set_index("seed").sort_index()[list(IDENTITY_COLS)]
+        same = all(sub[sub["cell"] == k].set_index("seed").sort_index()[list(IDENTITY_COLS)].equals(ref)
+                   for k in cells[1:])
+        rows.append({"experiment": name, "controller": controller,
+                     "cells": " ".join(map(str, cells)), "identical": bool(same)})
     return pd.DataFrame(rows)
