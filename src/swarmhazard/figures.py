@@ -21,12 +21,13 @@ with warnings.catch_warnings():
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-CONTROLLERS = ["C0", "C1", "C2", "C3", "C4", "C5"]
+CONTROLLERS = ["C0", "C1", "C2", "C3", "C4", "C5", "C6"]
 PALETTE = {"C0": "#999999", "C1": "#E69F00", "C2": "#0072B2", "C3": "#009E73", "C4": "#CC79A7",
-           "C5": "#D55E00"}
+           "C5": "#D55E00", "C6": "#56B4E9"}
 NAMES = {"C0": "C0 ignore", "C1": "C1 avoid wrecks", "C2": "C2 mark",
-         "C3": "C3 mark + risk", "C4": "C4 oracle", "C5": "C5 own maps"}
+         "C3": "C3 mark + risk", "C4": "C4 oracle", "C5": "C5 own maps", "C6": "C6 shared records"}
 METRICS = {"delivered": "Items delivered", "robots_lost": "Robots lost"}
+POST_METRICS = {"delivered_post": "Items delivered after the move", "lost_post": "Robots lost after the move"}
 LEVELS = {
     "E2": ["next to patch", "between patch\nand nest", "far", "no hazard\n(random failures)"],
     "E3": [5, 10, 20, 40, 80],
@@ -34,10 +35,15 @@ LEVELS = {
     "E5": [0.5, 1.0, 2.0],
     "E6": [5, 10, 20, 40, 80],
     "E7": ["no noise", "20% missed", "false\nsightings", "both"],
+    "E6b": [5, 10, 20, 40, 80],
+    "E7b": ["no noise", "50% missed", "80% missed", "50% missed\n(10 s spells)",
+            "80% missed\n(10 s spells)", "false sightings\n(x10)"],
+    "E8": ["static", "moved,\ntuned decay", "moved,\nfast decay"],
 }
 XLABEL = {"E3": "Swarm size (robots)", "E4": "Lethality per step inside the hazard",
-          "E5": "Hazard area inside the arena (m²)", "E6": "Swarm size (robots)"}
-LOGX = {"E3": True, "E4": True, "E5": False, "E6": True}
+          "E5": "Hazard area inside the arena (m²)", "E6": "Swarm size (robots)",
+          "E6b": "Swarm size (robots)"}
+LOGX = {"E3": True, "E4": True, "E5": False, "E6": True, "E6b": True}
 METRIC_EVERY_S = 50.0  # metric_every (500 steps) x dt (0.1 s)
 
 
@@ -61,7 +67,7 @@ def _boxes(ax, df: pd.DataFrame, metric: str) -> None:
         jitter = np.linspace(-0.15, 0.15, len(values)) if len(values) > 1 else np.zeros(len(values))
         ax.scatter(k + jitter, values, s=5, color=PALETTE[c], alpha=0.6, linewidths=0)
     ax.set_xticks(range(1, len(present) + 1), present)
-    ax.set_ylabel(METRICS[metric])
+    ax.set_ylabel({**METRICS, **POST_METRICS}[metric])
 
 
 def fig_e1(df: pd.DataFrame, out_dir: Path) -> list[Path]:
@@ -73,15 +79,18 @@ def fig_e1(df: pd.DataFrame, out_dir: Path) -> list[Path]:
 
 
 CELL_TITLES = {"E2": ("E2: hazard placement", "e2_placement"),
-               "E7": ("E7: detection noise", "e7_noise")}
+               "E7": ("E7: detection noise", "e7_noise"),
+               "E7b": ("E7b: strong and correlated detection noise (cells paired by seed)", "e7b_noise"),
+               "E8": ("E8: after the hazard moves (step 5000)", "e8_move")}
 
 
-def fig_cells(df: pd.DataFrame, name: str, out_dir: Path) -> list[Path]:
+def fig_cells(df: pd.DataFrame, name: str, out_dir: Path,
+              metrics: dict = METRICS) -> list[Path]:
     levels = LEVELS[name]
     fig, axes = plt.subplots(2, len(levels), figsize=(3 * len(levels), 5.6), sharey="row")
     for col, label in enumerate(levels):
         sub = df[df["cell"] == col]
-        for row, metric in enumerate(METRICS):
+        for row, metric in enumerate(metrics):
             _boxes(axes[row, col], sub, metric)
             if col > 0:
                 axes[row, col].set_ylabel("")
@@ -140,6 +149,30 @@ def fig_auc(df: pd.DataFrame, out_dir: Path) -> list[Path]:
     return _save(fig, out_dir, "e1_auc_over_time")
 
 
+def fig_e8_auc(df: pd.DataFrame, out_dir: Path) -> list[Path]:
+    fig, ax = plt.subplots(figsize=(5.5, 3.4))
+    styles = {1: ("-", "moved, tuned decay"), 2: ("--", "moved, fast decay")}
+    for cell, (linestyle, label) in styles.items():
+        mask = (df["controller"] == "C2") & (df["cell"] == cell)
+        series = [s for s in df.loc[mask, "auc_series"].dropna() if str(s)]
+        if not series:
+            continue
+        values = np.array([[float(v) for v in str(s).split(";")] for s in series])
+        t = METRIC_EVERY_S * np.arange(1, values.shape[1] + 1)
+        ax.plot(t, np.median(values, axis=0), color=PALETTE["C2"], linestyle=linestyle, label=f"{NAMES['C2']}, {label}")
+        ax.fill_between(t, np.percentile(values, 25, axis=0), np.percentile(values, 75, axis=0),
+                        color=PALETTE["C2"], alpha=0.12, linewidth=0)
+    ax.axvline(500.0, color="#666666", linewidth=0.9, linestyle="--")
+    ax.annotate("hazard moves", (500.0, 1.0), xycoords=("data", "axes fraction"), xytext=(4, -4),
+                textcoords="offset points", ha="left", va="top", fontsize=8, color="#444444")
+    ax.axhline(0.5, color="#666666", linewidth=0.8, linestyle=":")
+    ax.set_xlabel("Time (s)")
+    ax.set_ylabel("Localisation AUC (current hazard)")
+    ax.legend(frameon=False, fontsize=8, loc="lower right")
+    ax.set_title("E8: the map must relearn the moved hazard")
+    return _save(fig, out_dir, "e8_auc_over_time")
+
+
 def make_all(results_dir: Path, out_dir: Path) -> list[Path]:
     with warnings.catch_warnings():
         # Same third-party pyparsing deprecation notices, raised lazily while drawing text.
@@ -154,12 +187,17 @@ def _make_all(results_dir: Path, out_dir: Path) -> list[Path]:
         e1 = pd.read_csv(path)
         written += fig_e1(e1, out_dir)
         written += fig_auc(e1, out_dir)
-    for name in ("E2", "E7"):
+    for name in ("E2", "E7", "E7b"):
         path = results_dir / f"{name}.csv"
         if path.exists():
             written += fig_cells(pd.read_csv(path), name, out_dir)
-    for name in ("E3", "E4", "E5", "E6"):
+    for name in ("E3", "E4", "E5", "E6", "E6b"):
         path = results_dir / f"{name}.csv"
         if path.exists():
             written += fig_sweep(pd.read_csv(path), name, out_dir)
+    path = results_dir / "E8.csv"
+    if path.exists():
+        e8 = pd.read_csv(path)
+        written += fig_cells(e8, "E8", out_dir, metrics=POST_METRICS)
+        written += fig_e8_auc(e8, out_dir)
     return written
