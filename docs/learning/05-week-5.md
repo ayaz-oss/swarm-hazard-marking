@@ -143,8 +143,11 @@ seeds is step 4000 (400 s), so the jump looks like a single step.
 
 What this shows, descriptively: in these 30 runs, the step shape of the median
 AUC curve comes from the median switching from unmarked runs (AUC exactly 0.5) to
-marked runs, which happens when half the runs have a mark. It is a property of
-taking the median over runs, not a slow improvement of the map inside each run.
+marked runs, which happens when half the runs have a mark. The flat start and the first
+jump are a property of taking the median over runs, not a slow improvement of the
+map inside each run. The later rise (median AUC from 0.598 to 0.745 by step 5000)
+may mix more runs being marked with maps improving within runs; this check did not
+separate the two.
 Half of the runs had lost a robot by step 2000, but half had a mark only by step
 3710.
 
@@ -164,7 +167,7 @@ Suggested wording only, for discussion with your mentor:
   found that at lethality 0.1 and 1.0 nearly every robot that entered the hazard
   was lost (0.992 and 1.000 per robot that entered), so losses were bounded by
   how many robots entered. Add that E4's cells use different layouts.
-- **AUC-over-time figure.** The caption should say that the median AUC is exactly
+- **AUC-over-time figure.** The caption should say (in a 30-seed descriptive check) that the median AUC is exactly
   0.5 while fewer than half of the runs have any mark, so the flat start and the
   jump are a feature of the median over runs, not of the maps' quality. It may be
   worth showing the fraction of runs marked next to the curve.
@@ -192,3 +195,8 @@ Suggested wording only, for discussion with your mentor:
 These wait for the pre-registration approval. Nothing has been run beyond
 one-seed smoke tests, and nothing will be until the pre-registration in
 `docs/hypotheses.md` is approved.
+
+For later: in E8 a run counts as "marked" if any AUC sample differs from 0.5, so
+after the move a stale map read against the new hazard also counts. The E8
+AUC-over-time figure measures against the old hazard before 500 s and the new one
+after, and its caption must say so.

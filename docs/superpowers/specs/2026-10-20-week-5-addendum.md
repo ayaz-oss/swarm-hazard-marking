@@ -150,7 +150,8 @@ seed bootstrap with 10,000 resamples and generator seed 20261016; Holm). All exp
   - E8 (paired cells), C2 only: cell 2 vs cell 1 (`delivered_pre`, `lost_pre`,
     `delivered_post`, `lost_post`) and cell 1 vs cell 0 (`delivered_post`, `lost_post`).
 - **Holm within each experiment**, over every test in that experiment (within-cell and
-  extra together).
+  extra together). The family is the Wilcoxon tests only (E6b 30, E7b 66, E8 24); Friedman
+  p-values are reported alongside and are not part of the Holm family.
 - Descriptive tables per cell and controller (medians with bootstrap CIs; AUC medians and
   the number of runs with any mark; E8 pre/post columns, `auc_pre`, `auc_old_final`;
   E6b `known_frac` for C6).

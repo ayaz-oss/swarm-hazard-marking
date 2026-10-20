@@ -175,7 +175,8 @@ parameters from the baseline plus `configs/tuned_params.yaml` (a cell's own valu
 
 **Analysis (all exploratory).** Paired two-sided Wilcoxon signed-rank tests (Pratt zeros) and
 seed-bootstrap CIs as in the Statistics section, with **Holm correction over every test
-within each experiment**:
+within each experiment**, where the tests are the Wilcoxon comparisons in items 1–4
+(Friedman p-values are reported alongside, not counted in the Holm family):
 
 1. Within each cell: Friedman across the experiment's controllers, then each controller vs
    C2. Metrics: E6b and E7b `delivered` and `robots_lost`; E8 `delivered_post` and
