@@ -39,6 +39,8 @@ LEVELS = {
     "E7b": ["no noise", "50% missed", "80% missed", "50% missed\n(10 s spells)",
             "80% missed\n(10 s spells)", "false sightings\n(x10)"],
     "E8": ["static", "moved,\ntuned decay", "moved,\nfast decay"],
+    "E9": ["baseline\nnest", "baseline\nfidelity", "rand-fail\nnest", "rand-fail\nfidelity",
+            "q_false\nnest", "q_false\nfidelity"],
 }
 XLABEL = {"E3": "Swarm size (robots)", "E4": "Lethality per step inside the hazard",
           "E5": "Hazard area inside the arena (m²)", "E6": "Swarm size (robots)",
@@ -81,7 +83,8 @@ def fig_e1(df: pd.DataFrame, out_dir: Path) -> list[Path]:
 CELL_TITLES = {"E2": ("E2: hazard placement", "e2_placement"),
                "E7": ("E7: detection noise", "e7_noise"),
                "E7b": ("E7b: strong and correlated detection noise (cells paired by seed)", "e7b_noise"),
-               "E8": ("E8: after the hazard moves (step 5000)", "e8_move")}
+               "E8": ("E8: after the hazard moves (step 5000)", "e8_move"),
+               "E9": ("E9: site fidelity vs nest restart (cells paired by seed)", "e9_fidelity")}
 
 
 def fig_cells(df: pd.DataFrame, name: str, out_dir: Path,
@@ -200,4 +203,7 @@ def _make_all(results_dir: Path, out_dir: Path) -> list[Path]:
         e8 = pd.read_csv(path)
         written += fig_cells(e8, "E8", out_dir, metrics=POST_METRICS)
         written += fig_e8_auc(e8, out_dir)
+    path = results_dir / "E9.csv"
+    if path.exists():
+        written += fig_cells(pd.read_csv(path), "E9", out_dir)
     return written

@@ -174,7 +174,11 @@ WEEK5 = {
 }
 # Runs that must be identical across paired cells (reported, not tested).
 IDENTITIES = {"E7b": [("C0", (0, 1, 2, 3, 4, 5)), ("C1", (0, 5))],
-              "E8": [("C0", (1, 2)), ("C1", (1, 2)), ("C4", (1, 2))]}
+              "E8": [("C0", (1, 2)), ("C1", (1, 2)), ("C4", (1, 2))],
+              # E9: C0, C1, C4 don't react to false sightings, so they're identical across
+              # cells that differ only in q_false (cells 0 vs 4, and 1 vs 5).
+              "E9": [("C0", (0, 4)), ("C0", (1, 5)), ("C1", (0, 4)), ("C1", (1, 5)),
+                     ("C4", (0, 4)), ("C4", (1, 5))]}
 # Every behavioural outcome column. false_sightings is deliberately left out: it counts noise
 # events (phantoms are counted even by controllers that ignore them, e.g. C0 in E7b cell 5),
 # not behaviour.
@@ -268,3 +272,145 @@ def identity_checks(name, df) -> pd.DataFrame:
         rows.append({"experiment": name, "controller": controller,
                      "cells": " ".join(map(str, cells)), "identical": bool(same)})
     return pd.DataFrame(rows)
+
+
+# ---------------------------------------------------------------------------
+# Week-6 analysis (E9, docs/hypotheses.md "Week-6 experiment")
+# ---------------------------------------------------------------------------
+
+E9_CONTROLLERS = ["C0", "C1", "C2", "C3", "C4"]
+E9_METRICS = ("delivered", "robots_lost")
+E9_DESCRIPTIVE_COLS = ["auc_final", "false_sightings", "trip_steps_mean", "search_steps_mean",
+                        "nest_steps"]
+
+
+def _get_seed_series(df, controller, cell, metric):
+    """Return per-seed values for one controller × cell, sorted by seed."""
+    sub = df[(df["controller"] == controller) & (df["cell"] == cell)]
+    return sub.sort_values("seed")[metric].to_numpy(float)
+
+
+def week6_tests(df: pd.DataFrame, rng: np.random.Generator, n_boot: int = N_BOOT) -> pd.DataFrame:
+    """82 pre-registered E9 tests; ONE Holm pass over all 82."""
+    rows = []
+
+    # 1. Within each cell: Friedman across C0-C4, then C0/C1/C3/C4 each vs C2 (48 tests)
+    comparators = ["C0", "C1", "C3", "C4"]
+    for cell in range(6):
+        sub = df[df["cell"] == cell]
+        for metric in E9_METRICS:
+            present = [c for c in E9_CONTROLLERS if c in set(sub["controller"])]
+            wide = sub.pivot(index="seed", columns="controller", values=metric)[present].dropna().sort_index()
+            friedman_p = _friedman(wide)
+            for c in comparators:
+                if c not in wide.columns:
+                    continue
+                x, y = wide[c].to_numpy(float), wide["C2"].to_numpy(float)
+                row = compare(x, y, rng, n_boot)
+                row.update(kind="vs_C2", cell=int(cell), metric=metric, x=c, y="C2",
+                           cell_y=int(cell), p=wilcoxon_p(x, y, "two-sided"),
+                           friedman_p=friedman_p)
+                rows.append(row)
+
+    # 2. Fidelity vs nest per controller: cell 1 vs 0, 3 vs 2, 5 vs 4 (30 tests)
+    fidelity_pairs = [(1, 0), (3, 2), (5, 4)]
+    for cell_x, cell_y in fidelity_pairs:
+        for c in E9_CONTROLLERS:
+            for metric in E9_METRICS:
+                x = _get_seed_series(df, c, cell_x, metric)
+                y = _get_seed_series(df, c, cell_y, metric)
+                if len(x) == 0 or len(y) == 0 or len(x) != len(y):
+                    continue
+                row = compare(x, y, rng, n_boot)
+                row.update(kind="fidelity_vs_nest", cell=int(cell_x), cell_y=int(cell_y),
+                           metric=metric, x=f"{c}@{cell_x}", y=f"{c}@{cell_y}",
+                           p=wilcoxon_p(x, y, "two-sided"), friedman_p=float("nan"))
+                rows.append(row)
+
+    # 3. Interaction tests on per-seed differences (4 tests)
+    # (a) C2 false-sighting gain: (cell4 - cell0) vs (cell5 - cell1), delivered
+    c2_4 = _get_seed_series(df, "C2", 4, "delivered")
+    c2_0 = _get_seed_series(df, "C2", 0, "delivered")
+    c2_5 = _get_seed_series(df, "C2", 5, "delivered")
+    c2_1 = _get_seed_series(df, "C2", 1, "delivered")
+    if len(c2_4) == len(c2_0) == len(c2_5) == len(c2_1) > 0:
+        x = c2_4 - c2_0  # false-sighting gain with nest
+        y = c2_5 - c2_1  # false-sighting gain with fidelity
+        row = compare(x, y, rng, n_boot)
+        row.update(kind="interaction", cell=4, cell_y=5, metric="delivered",
+                   x="C2@4-C2@0", y="C2@5-C2@1",
+                   p=wilcoxon_p(x, y, "two-sided"), friedman_p=float("nan"))
+        rows.append(row)
+
+    # (b) C2 lead over C0 in random-failure control: (C2-C0 in cell2) vs (C2-C0 in cell3), delivered
+    c2_c2 = _get_seed_series(df, "C2", 2, "delivered")
+    c0_c2 = _get_seed_series(df, "C0", 2, "delivered")
+    c2_c3 = _get_seed_series(df, "C2", 3, "delivered")
+    c0_c3 = _get_seed_series(df, "C0", 3, "delivered")
+    if len(c2_c2) == len(c0_c2) == len(c2_c3) == len(c0_c3) > 0:
+        x = c2_c2 - c0_c2  # C2 lead in cell 2 (nest)
+        y = c2_c3 - c0_c3  # C2 lead in cell 3 (fidelity)
+        row = compare(x, y, rng, n_boot)
+        row.update(kind="interaction", cell=2, cell_y=3, metric="delivered",
+                   x="(C2-C0)@2", y="(C2-C0)@3",
+                   p=wilcoxon_p(x, y, "two-sided"), friedman_p=float("nan"))
+        rows.append(row)
+
+    # (c) C2 lead over C0 at baseline: (C2-C0 in cell0) vs (C2-C0 in cell1), delivered
+    c2_b0 = _get_seed_series(df, "C2", 0, "delivered")
+    c0_b0 = _get_seed_series(df, "C0", 0, "delivered")
+    c2_b1 = _get_seed_series(df, "C2", 1, "delivered")
+    c0_b1 = _get_seed_series(df, "C0", 1, "delivered")
+    if len(c2_b0) == len(c0_b0) == len(c2_b1) == len(c0_b1) > 0:
+        x = c2_b0 - c0_b0  # C2 lead with nest
+        y = c2_b1 - c0_b1  # C2 lead with fidelity
+        row = compare(x, y, rng, n_boot)
+        row.update(kind="interaction", cell=0, cell_y=1, metric="delivered",
+                   x="(C2-C0)@0", y="(C2-C0)@1",
+                   p=wilcoxon_p(x, y, "two-sided"), friedman_p=float("nan"))
+        rows.append(row)
+
+    # (d) C1 excess losses over C2 at baseline: (C1-C2 in cell0) vs (C1-C2 in cell1), robots_lost
+    c1_b0 = _get_seed_series(df, "C1", 0, "robots_lost")
+    c2_b0_l = _get_seed_series(df, "C2", 0, "robots_lost")
+    c1_b1 = _get_seed_series(df, "C1", 1, "robots_lost")
+    c2_b1_l = _get_seed_series(df, "C2", 1, "robots_lost")
+    if len(c1_b0) == len(c2_b0_l) == len(c1_b1) == len(c2_b1_l) > 0:
+        x = c1_b0 - c2_b0_l  # C1 excess losses with nest
+        y = c1_b1 - c2_b1_l  # C1 excess losses with fidelity
+        row = compare(x, y, rng, n_boot)
+        row.update(kind="interaction", cell=0, cell_y=1, metric="robots_lost",
+                   x="(C1-C2)@0", y="(C1-C2)@1",
+                   p=wilcoxon_p(x, y, "two-sided"), friedman_p=float("nan"))
+        rows.append(row)
+
+    out = pd.DataFrame(rows)
+    if len(out):
+        out["p_holm"] = holm(out["p"].to_numpy())
+    return out
+
+
+def week6_descriptive(df: pd.DataFrame, rng: np.random.Generator, n_boot: int = N_BOOT) -> pd.DataFrame:
+    """descriptive() plus marked-run counts and week-6 observation metrics."""
+    base = descriptive(df, rng, n_boot)
+    extra_cols = [c for c in E9_DESCRIPTIVE_COLS if c in df]
+    rows = []
+    for (cell, controller), sub in df.groupby(["cell", "controller"]):
+        row = {"cell": int(cell), "controller": controller}
+        row["marked_runs"] = (int(sum(_marked(s) for s in sub["auc_series"].fillna("")))
+                              if "auc_series" in sub else 0)
+        idx = rng.integers(0, len(sub), size=(n_boot, len(sub)))
+        for col in extra_cols:
+            values = sub[col].to_numpy(float)
+            row[f"{col}_n"] = int((~np.isnan(values)).sum())
+            if np.isnan(values).all():
+                row[f"{col}_median"] = row[f"{col}_lo"] = row[f"{col}_hi"] = float("nan")
+                continue
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", RuntimeWarning)
+                row[f"{col}_median"] = float(np.nanmedian(values))
+                row[f"{col}_lo"], row[f"{col}_hi"] = _ci(np.nanmedian(values[idx], axis=1))
+        rows.append(row)
+    extra = pd.DataFrame(rows)
+    base = base.drop(columns=[c for c in base if c in extra and c not in ("cell", "controller")])
+    return base.merge(extra, on=["cell", "controller"])
