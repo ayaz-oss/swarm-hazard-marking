@@ -71,14 +71,13 @@ def main() -> int:
     results = ROOT / "results"
     results.mkdir(exist_ok=True)
 
-    golden = subprocess.run([sys.executable, "-m", "pytest", "-q", "tests/test_golden.py"],
-                            cwd=worktree, env=env)
-    if golden.returncode != 0:
-        print(f"Refusing: golden test failed at {sha}.", file=sys.stderr)
-        return 1
-
-    keep_awake(True)
+    keep_awake(True)  # before the golden test too: a sleep there stalled a batch (2026-10-21)
     try:
+        golden = subprocess.run([sys.executable, "-m", "pytest", "-q", "tests/test_golden.py"],
+                                cwd=worktree, env=env)
+        if golden.returncode != 0:
+            print(f"Refusing: golden test failed at {sha}.", file=sys.stderr)
+            return 1
         for name in args.experiments:
             start = time.time()
             with open(results / f"{name}.log", "w") as log:
