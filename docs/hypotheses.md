@@ -195,3 +195,45 @@ checks are reported, not tested: in E7b every C0 run is identical across cells a
 identical in cells 0 and 5; in E8, C0, C1 and C4 are identical in cells 1 and 2. E6b, E7b and
 E8 are accepted only if every golden case recorded at E1's commit is unchanged at their
 commit (C0–C5 bit-identical with the new features off).
+
+## Week-6 experiment (exploratory; added 2026-10-21, before any E9 data exist; `docs/superpowers/specs/2026-10-21-week-6-addendum.md`)
+
+No confirmatory hypotheses. Nothing above this section is changed. 100 seeds per cell;
+parameters from the baseline plus `configs/tuned_params.yaml` (a cell's own value wins).
+
+| Exp | Controllers | Cells, in order | Paired cells |
+|---|---|---|---|
+| E9 | C0, C1, C2, C3, C4 | 0 baseline, search_start nest; 1 baseline, last_pickup; 2 hazards [] + random_fail_rate 0.0000266, nest; 3 same, last_pickup; 4 baseline + q_false 0.0001, nest; 5 same, last_pickup | yes |
+
+- **Site fidelity (`search_start: last_pickup`):** after a delivery, a robot with a recorded
+  pickup position heads straight to it (state OUTBOUND; wreck and repellent avoidance as in
+  RETURN; no pickups) and switches to SEARCH within `sense_range` of it. `search_start: nest`
+  is the behaviour of E1–E8 and must be bit-identical to it (golden test unchanged).
+- **New observation metrics (descriptive only):** `trip_steps_mean`, `search_steps_mean`,
+  `nest_steps` (robot-steps within 1.5 m of the nest centre).
+
+**Candidate mechanism, stated before the data:** the week-5 false-sighting gain and C2's lead
+in the random-failure control come from search restarting at the nest. Expected under this
+candidate: (a) C2's false-sighting gain is smaller with fidelity; (b) C2's lead over C0 in
+the random-failure control is smaller with fidelity; (c) `nest_steps` is lower with fidelity.
+
+**Analysis (all exploratory).** Paired two-sided Wilcoxon signed-rank tests (Pratt zeros) and
+seed-bootstrap CIs as in the Statistics section, with **Holm correction over all tests in
+items 1–3 together** (Friedman p-values are reported alongside, not in the Holm family):
+
+1. Within each cell: Friedman across C0–C4, then C0, C1, C3 and C4 each vs C2, on `delivered`
+   and `robots_lost` (6 cells × 4 × 2 = 48 tests).
+2. Fidelity vs nest, per controller (paired by seed): cell 1 vs 0, 3 vs 2 and 5 vs 4 for each
+   of C0–C4, on `delivered` and `robots_lost` (3 × 5 × 2 = 30 tests).
+3. Interaction tests, on per-seed differences (paired by seed):
+   (a) C2's false-sighting gain: (cell 4 − cell 0) vs (cell 5 − cell 1), `delivered`;
+   (b) C2's lead in the random-failure control: (C2 − C0 in cell 2) vs (C2 − C0 in cell 3), `delivered`;
+   (c) C2's lead over C0 at baseline: (C2 − C0 in cell 0) vs (C2 − C0 in cell 1), `delivered`;
+   (d) C1's excess losses over C2 at baseline: (C1 − C2 in cell 0) vs (C1 − C2 in cell 1), `robots_lost` (4 tests).
+
+Family size: 82 tests. Reported descriptively (medians with bootstrap CIs): `delivered`,
+`robots_lost`, `auc_final` (C2, C3), runs with any mark, `false_sightings`,
+`trip_steps_mean`, `search_steps_mean`, `nest_steps`. Identity checks (reported, not tested):
+C0, C1 and C4 are identical in cells 0 and 4, and in cells 1 and 5 (none of them reacts to
+false sightings). E9 is accepted only if every golden case recorded at E1's commit is
+unchanged at its commit.
