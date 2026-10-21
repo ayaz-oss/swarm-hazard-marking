@@ -12,6 +12,24 @@
     "state_digest": "1230244654553fd0548ba7074cbeea756fd4f81c4f9c0198b095b5c9846d083e",
     "steps": 3000
   },
+  "C0_fidelity": {
+    "auc_final": NaN,
+    "auc_mean": NaN,
+    "auc_series": "",
+    "carrying": 3,
+    "delivered": 31,
+    "false_sightings": 0,
+    "first_loss_step": 820,
+    "hazard_area": 3.1800000000000006,
+    "items_lost": 0,
+    "nest_steps": 25432,
+    "picked_up": 34,
+    "robots_lost": 1,
+    "search_steps_mean": 671.5294117647059,
+    "state_digest": "f219332cfdf80ffc5046dfb0681b90765a71b3b6f6216256cecc4810731fd530",
+    "steps": 3000,
+    "trip_steps_mean": 248.58064516129033
+  },
   "C1": {
     "auc_final": NaN,
     "auc_mean": NaN,
@@ -65,6 +83,24 @@
     "robots_lost": 3,
     "state_digest": "8b36a987f7c2f0c6873bccf570ef07911bfc9bfabc724c791dcc671dc5947798",
     "steps": 4000
+  },
+  "C2_fidelity": {
+    "auc_final": 0.5,
+    "auc_mean": 0.5,
+    "auc_series": "0.5000;0.5000;0.5000;0.5000;0.5000;0.5000",
+    "carrying": 3,
+    "delivered": 31,
+    "false_sightings": 0,
+    "first_loss_step": 820,
+    "hazard_area": 3.1800000000000006,
+    "items_lost": 0,
+    "nest_steps": 25432,
+    "picked_up": 34,
+    "robots_lost": 1,
+    "search_steps_mean": 671.5294117647059,
+    "state_digest": "f219332cfdf80ffc5046dfb0681b90765a71b3b6f6216256cecc4810731fd530",
+    "steps": 3000,
+    "trip_steps_mean": 248.58064516129033
   },
   "C2_move": {
     "auc_final": 0.4813571576120636,
@@ -143,6 +179,24 @@
     "robots_lost": 0,
     "state_digest": "5bb5656c70acdae2d45f7796daaf3c84fef51c2fec590a79f0d75de9f5efda76",
     "steps": 3000
+  },
+  "C4_fidelity": {
+    "auc_final": NaN,
+    "auc_mean": NaN,
+    "auc_series": "",
+    "carrying": 4,
+    "delivered": 29,
+    "false_sightings": 0,
+    "first_loss_step": -1,
+    "hazard_area": 3.1800000000000006,
+    "items_lost": 0,
+    "nest_steps": 25295,
+    "picked_up": 33,
+    "robots_lost": 0,
+    "search_steps_mean": 746.8181818181819,
+    "state_digest": "04c029a793f2c135c5ecf101b8146e858802cc11757cb07e0fc2e711eba5ba64",
+    "steps": 3000,
+    "trip_steps_mean": 246.0
   },
   "C4_move": {
     "auc_final": NaN,

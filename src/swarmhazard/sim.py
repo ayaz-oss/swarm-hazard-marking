@@ -28,7 +28,7 @@ from swarmhazard.metrics import field_auc, hazard_mask
 from swarmhazard.noise import next_blind
 from swarmhazard.pheromone import RepellentField
 from swarmhazard.records import SightingRecords
-from swarmhazard.robots import RETURN, SEARCH, make_swarm, unit
+from swarmhazard.robots import OUTBOUND, RETURN, SEARCH, make_swarm, unit
 from swarmhazard.world import hazard_failures, in_hazard, make_world, respawn_item, set_hazards
 
 
@@ -63,6 +63,15 @@ class Simulation:
         self.first_loss_post_step = -1  # E8
         self._pre = None
         self._old_mask = None
+        # Observation metrics (week 6): do not affect behaviour or random streams
+        n = cfg.n_robots
+        self._pickup_step = np.full(n, -1, dtype=np.int64)       # step of last pickup per robot
+        self._last_event_step = np.zeros(n, dtype=np.int64)      # delivery step (or 0 at start)
+        self._trip_steps_total = np.int64(0)
+        self._trip_count = np.int64(0)
+        self._search_steps_total = np.int64(0)
+        self._search_count = np.int64(0)
+        self.nest_steps = np.int64(0)
 
     def step(self) -> None:
         if self.t == self.cfg.hazard_move_step:
@@ -80,6 +89,10 @@ class Simulation:
         alive = sw.alive.copy()
         searching = alive & (sw.state == SEARCH)
         returning = alive & (sw.state == RETURN)
+
+        # Observation: count live-robot-steps within 1.5 m of the nest (before movement)
+        dist_to_nest = norm(sw.pos - self.nest)
+        self.nest_steps += int((alive & (dist_to_nest < 1.5)).sum())
 
         self._choose_headings(searching, returning)
         self._move(alive)
@@ -139,6 +152,18 @@ class Simulation:
             sw.heading[sees_item] = np.arctan2(v[sees_item, 1], v[sees_item, 0])
         v = self.nest - sw.pos
         sw.heading[returning] = np.arctan2(v[returning, 1], v[returning, 0])
+        # OUTBOUND: head straight toward last_pickup; switch to SEARCH when close enough
+        outbound = sw.alive & (sw.state == OUTBOUND)
+        if outbound.any():
+            idx = np.flatnonzero(outbound)
+            v_ob = sw.last_pickup[idx] - sw.pos[idx]
+            dist_ob = norm(v_ob)
+            arrived = dist_ob < cfg.sense_range
+            sw.state[idx[arrived]] = SEARCH
+            still_out = ~arrived
+            if still_out.any():
+                i_out = idx[still_out]
+                sw.heading[i_out] = np.arctan2(v_ob[still_out, 1], v_ob[still_out, 0])
 
         dead = np.flatnonzero(~sw.alive)
         steer = unit(sw.heading) + avoidance(cfg, sw.pos, sw.pos[dead], self.field, self.world,
@@ -190,15 +215,36 @@ class Simulation:
             if d[j] < self.cfg.pickup_radius:
                 sw.state[i] = RETURN
                 self.picked_up += 1
+                # Observation: record search-leg steps and pickup position
+                self._search_steps_total += self.t - self._last_event_step[i]
+                self._search_count += 1
+                self._pickup_step[i] = self.t
+                sw.last_pickup[i] = sw.pos[i].copy()
                 respawn_item(self.world, j, self.respawn_rng)
                 changed = True
 
     def _deliver(self, returning: np.ndarray) -> None:
         sw = self.swarm
         at_nest = returning & (norm(sw.pos - self.nest) < self.cfg.nest_radius)
-        sw.state[at_nest] = SEARCH
         fresh = self.motion_rng.uniform(-np.pi, np.pi, len(sw.pos))  # one draw per robot, always
-        sw.heading[at_nest] = fresh[at_nest]
+        if at_nest.any():
+            # Observation: record trip-leg steps
+            for i in np.flatnonzero(at_nest):
+                if self._pickup_step[i] >= 0:
+                    self._trip_steps_total += self.t - self._pickup_step[i]
+                    self._trip_count += 1
+                self._last_event_step[i] = self.t
+            if self.cfg.search_start == "last_pickup":
+                # Robots with a recorded last_pickup go OUTBOUND; others go SEARCH.
+                has_pickup = at_nest & ~np.isnan(sw.last_pickup[:, 0])
+                sw.state[has_pickup] = OUTBOUND
+                no_pickup = at_nest & np.isnan(sw.last_pickup[:, 0])
+                sw.state[no_pickup] = SEARCH
+                sw.heading[no_pickup] = fresh[no_pickup]
+                # Fresh heading is drawn but not used for OUTBOUND robots (stream preserved).
+            else:
+                sw.state[at_nest] = SEARCH
+                sw.heading[at_nest] = fresh[at_nest]
         self.delivered += int(at_nest.sum())
 
     def _fail(self, alive: np.ndarray) -> None:
@@ -302,6 +348,12 @@ class Simulation:
             "auc_mean": float(np.mean(self.auc_series)) if self.auc_series else float("nan"),
             "auc_series": ";".join(f"{a:.4f}" for a in self.auc_series),
             "hazard_area": float(self.hazard_mask.sum() * self.cfg.grid_cell ** 2),
+            # Week-6 observation metrics (do not affect behaviour or random streams)
+            "trip_steps_mean": (float(self._trip_steps_total) / float(self._trip_count)
+                                if self._trip_count > 0 else float("nan")),
+            "search_steps_mean": (float(self._search_steps_total) / float(self._search_count)
+                                  if self._search_count > 0 else float("nan")),
+            "nest_steps": int(self.nest_steps),
         }
         if self.records is not None:
             out["known_frac"] = self.records.known_frac(self.swarm.alive)

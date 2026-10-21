@@ -1,0 +1,15 @@
+# E9 (exploratory): site fidelity vs nest-restart, cells paired by seed (every cell uses
+# cell 0's random streams). Cell order is fixed. Week-6 addendum sections 2 and 4.
+name: E9
+base: configs/baseline.yaml
+controllers: [C0, C1, C2, C3, C4]
+seeds: 100
+paired_cells: true
+overrides_file: configs/tuned_params.yaml
+cells:
+  - {}                                                               # 0: baseline, search_start nest
+  - {search_start: last_pickup}                                      # 1: baseline, site fidelity
+  - {hazards: [], random_fail_rate: 0.0000266}                      # 2: no hazard + random failures, nest
+  - {hazards: [], random_fail_rate: 0.0000266, search_start: last_pickup}  # 3: same, fidelity
+  - {q_false: 0.0001}                                               # 4: baseline + false sightings, nest
+  - {q_false: 0.0001, search_start: last_pickup}                    # 5: baseline + false sightings, fidelity

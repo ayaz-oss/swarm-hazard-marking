@@ -53,6 +53,10 @@ class Config:
     q_false: float = 0.0
     miss_run: float = 0.0  # E7b: mean blind-spell length in steps for correlated misses; 0 = independent
 
+    # Site fidelity (E9): "nest" = default (restart search at the nest after delivery);
+    # "last_pickup" = head straight back to the last pickup position (OUTBOUND state).
+    search_start: str = "nest"
+
     # Controller and its weights
     controller: str = "C0"
     wreck_weight: float = 1.0
@@ -86,6 +90,8 @@ class Config:
             value = getattr(self, name)
             if not 0.0 <= value <= 1.0:
                 raise ValueError(f"{name} must be in [0, 1], got {value}")
+        if self.search_start not in ("nest", "last_pickup"):
+            raise ValueError(f"search_start must be 'nest' or 'last_pickup', got {self.search_start!r}")
         if self.miss_run < 0:
             raise ValueError(f"miss_run must be >= 0, got {self.miss_run}")
         if self.miss_run > 0:
