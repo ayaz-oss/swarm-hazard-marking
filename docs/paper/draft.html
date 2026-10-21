@@ -59,8 +59,9 @@
 
 <h2>2&nbsp;&nbsp;Related work</h2>
 <p><b>Stigmergy and repellent pheromones.</b> Repellent trail pheromones in Pharaoh ants [9] inspire our marking rule. In robot swarms, virtual pheromones are usually implemented as a shared field that agents read locally. Hunt, Jones and Hauert [6] tested the limits of pheromone stigmergy in high-density robot swarms and found that its benefit can degrade as density rises. This motivates our swarm-size sweep (Section 6.2).</p>
-<p><b>Faults and failures in swarms.</b> Work on fault detection asks how robots identify failed teammates [2, 5]. Hunt, Cullen and Hauert study "value at risk" swarms, in which robots warn their neighbours before failing [7]. In both, the failure is a problem for the swarm. Neither uses the place of a failure to map an environmental hazard.</p>
-<p><b>Risk-aware multi-robot exploration.</b> Aguirre et al. [1] study a swarm that chooses the safer of two areas from hazard event rates; it does no foraging and makes no inference from lost teammates. Srivastava, Suresh and Nieto-Granda [10] map hazards with multiple robots using planning. This is the closest work we know of, but it is centralised planning rather than stigmergic foraging.</p>
+<p><b>Faults and failures in swarms.</b> Work on fault detection asks how robots identify failed teammates [2, 5]. Hunt, Cullen and Hauert propose "value at risk" strategies, in which a robot broadcasts an alert to its neighbours when its accumulated exposure to a hazard exceeds a risk limit [7]. In both, the failure is a problem for the swarm. Neither uses the place of a failure to map an environmental hazard.</p>
+<p><b>Foraging and site fidelity.</b> Collective foraging is a standard swarm-robotics task [14]. In ant-inspired central-place foraging algorithms, robots may return to the place where they last found food (site fidelity) instead of searching afresh from the nest [13]; our robots restart their search at the nest, a choice whose side effects we examine in Section 6.8.</p>
+<p><b>Risk-aware multi-robot exploration.</b> Aguirre et al. [1] study a swarm that chooses the safer of two areas from hazard event rates; it does no foraging and makes no inference from lost teammates. Srivastava, Suresh and Nieto-Granda [10] localise hazards with multiple failure-prone robots using behaviour-adaptive path planning. This is the closest work we know of, but it is centralised planning rather than stigmergic foraging.</p>
 <p>To our knowledge, no previous study infers hazard location from lost teammates through purely local, decentralised marking during foraging, and quantifies both the items and the robots it saves.</p>
 
 <h2>3&nbsp;&nbsp;Model</h2>
@@ -193,7 +194,7 @@
 <p><b>No shared field is needed.</b> In E6 and E6b, keeping marks in each robot's own memory and exchanging them with neighbours showed no detectable difference from a shared field. This matters for physical robots, which cannot write to a shared virtual field without infrastructure. The result is limited by our arena size and communication range, where information spread almost fully.</p>
 <p><b>Risk weighting.</b> H4's null result reflects a flat tuning landscape and a gentle risk constant. A scenario where items lie close to the hazard, or a wider range of <i>k</i>, would be a fairer test.</p>
 <p><b>Limitations.</b> Robots are points without collisions, and the only form of crowding is time spent near the nest. The nest side effect in Section 6.8 suggests that our foraging model under-penalises lingering at the nest. A model with collisions could change both the side effect and the size of the main effects. There is one hazard, which is static except in E8. Wreck detection is idealised apart from the noise experiments, and robots always know the direction of the nest. The tuning landscape was flat. C4 is a reference rather than a true optimum. In E1, no carried items were ever lost, so losing a robot cost throughput rather than cargo. All results come from simulation, and bit-exact reproducibility was checked on one machine.</p>
-<p><b>Future work.</b> Replicating the baseline in a physics-based simulator (for example ARGoS or Webots) with collisions; measuring trip times to test the nest-crowding explanation directly; hazards that move repeatedly; a larger arena or shorter communication range for C6; a baseline from the literature, such as warning broadcasts before failure [7]; and other cues of failure, such as loss of a teammate's heartbeat signal.</p>
+<p><b>Future work.</b> Replicating the baseline in a physics-based simulator (for example ARGoS or Webots) with collisions; measuring trip times to test the nest-crowding explanation directly; hazards that move repeatedly; a larger arena or shorter communication range for C6; a baseline from the literature, such as risk-limit alert broadcasts [7]; and other cues of failure, such as loss of a teammate's heartbeat signal.</p>
 
 <h2>8&nbsp;&nbsp;Conclusion</h2>
 <p>A foraging swarm that cannot sense a hazard can still localise it from the wrecks of its teammates. Marking them with decaying repellent produced a map of the hazard (final median AUC about 0.8) and saved robots compared with ignoring wrecks or avoiding only those in view. The saving was larger in bigger swarms and held under strong detection noise. Marking showed no measurable cost when failures were random, although part of its apparent advantage there comes from a side effect of the foraging model, which we report. Failures need not only be absorbed; they can also be read.</p>
@@ -206,18 +207,20 @@
 
 <h2>References</h2>
 <div class="refs">
-<p>[1] Aguirre et al. (2025). arXiv:2511.22225. [Full author list and title to be added.]</p>
+<p>[1] Aguirre, G., Atasoy Bingöl, S., Hamann, H., Kuckling, J. (2025). Bayesian decentralized decision-making for multi-robot systems: sample-efficient estimation of event rates. arXiv:2511.22225.</p>
 <p>[2] Christensen, A. L., O'Grady, R., Dorigo, M. (2009). From fireflies to fault-tolerant swarms of robots. <i>IEEE Transactions on Evolutionary Computation</i> 13(4), 754–766.</p>
 <p>[3] Efron, B., Tibshirani, R. J. (1993). <i>An Introduction to the Bootstrap</i>. Chapman &amp; Hall.</p>
 <p>[4] Holm, S. (1979). A simple sequentially rejective multiple test procedure. <i>Scandinavian Journal of Statistics</i> 6(2), 65–70.</p>
 <p>[5] Tarapore, D., Christensen, A. L., Timmis, J. (2017). Generic, scalable and decentralized fault detection for robot swarms. <i>PLoS ONE</i> 12(8), e0182058.</p>
 <p>[6] Hunt, E. R., Jones, S., Hauert, S. (2019). Testing the limits of pheromone stigmergy in high-density robot swarms. <i>Royal Society Open Science</i> 6, 190225.</p>
-<p>[7] Hunt, E. R., Cullen, G., Hauert, S. "Value at risk" swarms. [Venue and year to be verified.]</p>
-<p>[8] Pratt, J. W. (1959). Remarks on zeros and ties in the Wilcoxon signed rank procedures. <i>Journal of the American Statistical Association</i> 54, 655–667.</p>
-<p>[9] Robinson, E. J. H., Jackson, D. E., Holcombe, M., Ratnieks, F. L. W. (2005). 'No entry' signal in ant foraging. <i>Nature</i> 438, 442.</p>
-<p>[10] Srivastava, Suresh, Nieto-Granda (2025). arXiv:2508.04537. [Full title to be added.]</p>
+<p>[7] Hunt, E. R., Cullen, C. B., Hauert, S. (2021). Value at risk strategies for robot swarms in hazardous environments. <i>Proc. SPIE 11758, Unmanned Systems Technology XXIII</i>, 117580M.</p>
+<p>[8] Pratt, J. W. (1959). Remarks on zeros and ties in the Wilcoxon signed rank procedures. <i>Journal of the American Statistical Association</i> 54(287), 655–667.</p>
+<p>[9] Robinson, E. J. H., Jackson, D. E., Holcombe, M., Ratnieks, F. L. W. (2005). Insect communication: 'No entry' signal in ant foraging. <i>Nature</i> 438, 442.</p>
+<p>[10] Srivastava, A. K., Suresh, A., Nieto-Granda, C. (2025). Behaviorally adaptive multi-robot hazard localization in failure-prone, communication-denied environments. arXiv:2508.04537.</p>
 <p>[11] Wilcoxon, F. (1945). Individual comparisons by ranking methods. <i>Biometrics Bulletin</i> 1(6), 80–83.</p>
 <p>[12] Vargha, A., Delaney, H. D. (2000). A critique and improvement of the CL common language effect size statistics of McGraw and Wong. <i>Journal of Educational and Behavioral Statistics</i> 25(2), 101–132.</p>
+<p>[13] Hecker, J. P., Moses, M. E. (2015). Beyond pheromones: evolving error-tolerant, flexible, and scalable ant-inspired robot swarms. <i>Swarm Intelligence</i> 9(1), 43–70.</p>
+<p>[14] Krieger, M. J. B., Billeter, J.-B., Keller, L. (2000). Ant-like task allocation and recruitment in cooperative robots. <i>Nature</i> 406, 992–995.</p>
 </div>
 
 <h2>Appendix A&nbsp;&nbsp;Deviations from the pre-registration</h2>
