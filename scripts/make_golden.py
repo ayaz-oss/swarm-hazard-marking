@@ -58,6 +58,13 @@ GOLDEN_CASES = {
                 "hazard_move_step": 2000, "hazards_after": ((1.19, 3.81, 1.0),)},
     "C4_move": {"controller": "C4", "lethality": 0.2, "n_steps": 3000,
                 "hazard_move_step": 500, "hazards_after": ((5.0, 5.0, 1.0),)},
+    # Week-6: site fidelity (search_start = last_pickup)
+    "C0_fidelity": {"controller": "C0", "lethality": 0.2, "n_steps": 3000,
+                    "search_start": "last_pickup"},
+    "C2_fidelity": {"controller": "C2", "lethality": 0.2, "n_steps": 3000, "metric_every": 500,
+                    "search_start": "last_pickup"},
+    "C4_fidelity": {"controller": "C4", "lethality": 0.2, "n_steps": 3000,
+                    "search_start": "last_pickup"},
 }
 
 
