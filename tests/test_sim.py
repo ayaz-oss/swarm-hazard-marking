@@ -15,7 +15,8 @@ def new_sim(**kw):
 
 def test_same_seed_same_result():
     cfg = Config(controller="C2", lethality=0.2, n_steps=3000)
-    assert run(cfg, make_rng("t", 0, 1)) == run(cfg, make_rng("t", 0, 1))
+    # Use assert_equal so NaN == NaN (repellent_in_hazard can be NaN for empty fields)
+    np.testing.assert_equal(run(cfg, make_rng("t", 0, 1)), run(cfg, make_rng("t", 0, 1)))
 
 
 def test_robots_stay_in_arena():
