@@ -24,7 +24,7 @@ import numpy as np
 from swarmhazard.config import Config
 from swarmhazard.controllers import MAPPED, MARKING, PERSONAL, RECORDS, avoidance, blocks_move, hazard_tangent
 from swarmhazard.geometry import norm
-from swarmhazard.metrics import field_auc, hazard_mask
+from swarmhazard.metrics import field_auc, hazard_mask, repellent_in_hazard_share
 from swarmhazard.noise import next_blind
 from swarmhazard.pheromone import RepellentField
 from swarmhazard.records import SightingRecords
@@ -348,6 +348,12 @@ class Simulation:
             "auc_mean": float(np.mean(self.auc_series)) if self.auc_series else float("nan"),
             "auc_series": ";".join(f"{a:.4f}" for a in self.auc_series),
             "hazard_area": float(self.hazard_mask.sum() * self.cfg.grid_cell ** 2),
+            # Week-7 observation metric: share of repellent mass inside the true hazard
+            # (does not change behaviour or random streams; NaN for non-marking controllers)
+            "repellent_in_hazard": repellent_in_hazard_share(
+                self._map_for_metrics(), self.hazard_mask,
+                self.cfg.controller in MAPPED
+            ),
             # Week-6 observation metrics (do not affect behaviour or random streams)
             "trip_steps_mean": (float(self._trip_steps_total) / float(self._trip_count)
                                 if self._trip_count > 0 else float("nan")),

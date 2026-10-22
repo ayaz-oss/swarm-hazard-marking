@@ -1,0 +1,14 @@
+# E7bF: site-fidelity replication of E7b (week-7 spec section 3). Cells paired by seed.
+name: E7bF
+base: configs/baseline.yaml
+controllers: [C0, C1, C2, C3]
+seeds: 100
+paired_cells: true
+overrides_file: configs/tuned_params_fidelity.yaml
+cells:
+  - {}                                  # 0: no noise
+  - {q_miss: 0.5}                       # 1: half of detections missed, independently
+  - {q_miss: 0.8}                       # 2: 80% missed, independently
+  - {q_miss: 0.5, miss_run: 100.0}      # 3: blind half the time, in ~10 s spells
+  - {q_miss: 0.8, miss_run: 100.0}      # 4: blind 80% of the time, in ~10 s spells
+  - {q_false: 0.0001}                   # 5: ~20 false sightings per run

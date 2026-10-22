@@ -1,0 +1,11 @@
+# E6bF: site-fidelity replication of E6b (week-7 spec section 3).
+# E1F-E5F have paired_cells; E6bF-E8F mirror the week-5 paired_cells settings of their counterparts.
+# E6b does NOT use paired_cells (consistent with the week-5 spec); E6bF matches it.
+name: E6bF
+base: configs/baseline.yaml
+controllers: [C2, C5, C6]
+seeds: 100
+overrides_file: configs/tuned_params_fidelity.yaml
+paired_cells: true
+grid:
+  n_robots: [5, 10, 20, 40, 80]

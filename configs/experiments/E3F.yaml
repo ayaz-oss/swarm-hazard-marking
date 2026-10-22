@@ -1,0 +1,9 @@
+# E3F: site-fidelity replication of E3 (week-7 spec section 3). Cells paired by seed.
+name: E3F
+base: configs/baseline.yaml
+controllers: [C0, C1, C2, C3, C4]
+seeds: 100
+overrides_file: configs/tuned_params_fidelity.yaml
+paired_cells: true
+grid:
+  n_robots: [5, 10, 20, 40, 80]

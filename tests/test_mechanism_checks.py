@@ -56,7 +56,8 @@ def test_auc_curve_columns():
 def test_trace_run_only_observes():
     cfg = Config(controller="C2", lethality=0.2, n_steps=1500, metric_every=10)
     result, inside, died, first_mark, auc = trace_run(cfg, make_rng("t", 0, 3))
-    assert result == run(cfg, make_rng("t", 0, 3))
+    # Use assert_equal so NaN == NaN (repellent_in_hazard can be NaN for empty fields)
+    np.testing.assert_equal(result, run(cfg, make_rng("t", 0, 3)))
     assert inside.shape == died.shape == (1500, cfg.n_robots)
     assert (inside | ~died).all()  # with no background failures, every death happens inside
     assert died.sum() == result["robots_lost"]

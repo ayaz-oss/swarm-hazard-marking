@@ -1,0 +1,9 @@
+# Week-7 tuning of C3's risk trade-off under site fidelity, on top of the C2
+# fidelity parameters from tune_c2f. Identical grid and seeds to tune_c3.
+name: tune_c3f
+base: configs/baseline.yaml
+controllers: [C3]
+seeds: 20
+overrides_file: configs/tuned_params_fidelity.yaml
+grid:
+  risk_k: [0.25, 0.5, 1.0, 2.0, 4.0]

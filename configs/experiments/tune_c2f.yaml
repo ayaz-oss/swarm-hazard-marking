@@ -1,0 +1,13 @@
+# Week-7 tuning of C2 under site fidelity. Identical grid and seeds to tune_c2,
+# but with search_start: last_pickup. The experiment name gives these runs
+# random streams independent of everything else.
+name: tune_c2f
+base: configs/baseline.yaml
+controllers: [C2]
+seeds: 20
+overrides:
+  search_start: last_pickup
+grid:
+  repel_weight: [0.5, 1.0, 2.0, 4.0]
+  deposit_sigma: [0.2, 0.3, 0.5]
+  decay: [0.0002, 0.0005, 0.002]

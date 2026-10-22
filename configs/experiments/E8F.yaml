@@ -1,0 +1,13 @@
+# E8F: site-fidelity replication of E8 (week-7 spec section 3). Cells paired by seed.
+name: E8F
+base: configs/baseline.yaml
+controllers: [C0, C1, C2, C4]
+seeds: 100
+paired_cells: true
+overrides_file: configs/tuned_params_fidelity.yaml
+overrides:
+  hazard_move_step: 5000
+cells:
+  - {hazards_after: [[8.81, 6.19, 1.0]], decay: 0.0002}   # 0: static, tuned decay
+  - {hazards_after: [[1.19, 3.81, 1.0]], decay: 0.0002}   # 1: moved, tuned decay
+  - {hazards_after: [[1.19, 3.81, 1.0]], decay: 0.002}    # 2: moved, fast decay (half-life ~35 s)
