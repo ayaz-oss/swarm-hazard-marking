@@ -21,11 +21,12 @@ with warnings.catch_warnings():
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-CONTROLLERS = ["C0", "C1", "C2", "C3", "C4", "C5", "C6"]
+CONTROLLERS = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7"]
 PALETTE = {"C0": "#999999", "C1": "#E69F00", "C2": "#0072B2", "C3": "#009E73", "C4": "#CC79A7",
-           "C5": "#D55E00", "C6": "#56B4E9"}
+           "C5": "#D55E00", "C6": "#56B4E9", "C7": "#F0E442"}
 NAMES = {"C0": "C0 ignore", "C1": "C1 avoid wrecks", "C2": "C2 mark",
-         "C3": "C3 mark + risk", "C4": "C4 oracle", "C5": "C5 own maps", "C6": "C6 shared records"}
+         "C3": "C3 mark + risk", "C4": "C4 oracle", "C5": "C5 own maps", "C6": "C6 shared records",
+         "C7": "C7 risk-limit alerts"}
 METRICS = {"delivered": "Items delivered", "robots_lost": "Robots lost"}
 POST_METRICS = {"delivered_post": "Items delivered after the move", "lost_post": "Robots lost after the move"}
 LEVELS = {
@@ -41,6 +42,11 @@ LEVELS = {
     "E8": ["static", "moved,\ntuned decay", "moved,\nfast decay"],
     "E9": ["baseline\nnest", "baseline\nfidelity", "rand-fail\nnest", "rand-fail\nfidelity",
             "q_false\nnest", "q_false\nfidelity"],
+    # Journal-package experiments
+    "E10": ["baseline\nhazard", "hazard between\npatch & nest", "no hazard\n(random failures)"],
+    "E11": ["scale 1\ncomm 1 m", "scale 1\ncomm 0.5 m", "scale 1\ncomm 0.25 m",
+            "scale 2\ncomm 1 m", "scale 2\ncomm 0.5 m"],
+    "E12": ["one hazard\n(baseline)", "two hazards", "two hazards\nlethality 0.1"],
     # Week-7 F experiments: same levels as their nest-restart counterparts
     "E2F": ["next to patch", "between patch\nand nest", "far", "no hazard\n(random failures)"],
     "E3F": [5, 10, 20, 40, 80],
@@ -92,7 +98,10 @@ def fig_e1(df: pd.DataFrame, out_dir: Path) -> list[Path]:
     return _save(fig, out_dir, "e1_baseline")
 
 
-CELL_TITLES = {"E2": ("E2: hazard placement", "e2_placement"),
+CELL_TITLES = {"E10": ("E10: C7 risk-limit alerts vs baselines (site fidelity)", "e10_alerts"),
+               "E11": ("E11: arena size and communication range sweep (site fidelity)", "e11_scale"),
+               "E12": ("E12: two hazards (site fidelity)", "e12_two_hazards"),
+               "E2": ("E2: hazard placement", "e2_placement"),
                "E7": ("E7: detection noise", "e7_noise"),
                "E7b": ("E7b: strong and correlated detection noise (cells paired by seed)", "e7b_noise"),
                "E8": ("E8: after the hazard moves (step 5000)", "e8_move"),
@@ -257,6 +266,11 @@ def _make_all(results_dir: Path, out_dir: Path) -> list[Path]:
     path = results_dir / "E9.csv"
     if path.exists():
         written += fig_cells(pd.read_csv(path), "E9", out_dir)
+    # Journal-package experiments (E10, E11, E12)
+    for name in ("E10", "E11", "E12"):
+        path = results_dir / f"{name}.csv"
+        if path.exists():
+            written += fig_cells(pd.read_csv(path), name, out_dir)
     # Week-7 F experiments
     path = results_dir / "E1F.csv"
     if path.exists():
