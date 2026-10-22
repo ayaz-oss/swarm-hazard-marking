@@ -1,0 +1,5 @@
+# Tuned parameters for C7 (journal package). Written by scripts/select_params.py.
+# Rule: highest median items delivered; ties -> lowest mean robots lost.
+# Placeholder values; overwritten by select_params.py after tune_c7f runs.
+alert_limit: 2
+alert_duration: 1000

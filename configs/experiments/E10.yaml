@@ -1,0 +1,15 @@
+# E10: C7 risk-limit alerts vs baselines (journal spec section 1).
+# C7 vs C1 isolates persistent marks (C2) vs transient alerts (C7) from the same evidence.
+# All cells use cell 0's random streams (paired_cells: true).
+name: E10
+base: configs/baseline.yaml
+controllers: [C0, C1, C2, C7]
+seeds: 100
+overrides_file:
+  - configs/tuned_params_fidelity.yaml
+  - configs/tuned_params_c7.yaml
+paired_cells: true
+cells:
+  - {}                                          # 0: baseline hazard (next to patch (7.5, 7.5))
+  - {hazards: [[6.25, 6.25, 1.0]]}               # 1: hazard between patch and nest
+  - {hazards: [], random_fail_rate: 0.0000266}   # 2: no hazard, random failures

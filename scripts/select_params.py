@@ -25,9 +25,11 @@ from swarmhazard.tuning import select_best
 ROOT = Path(__file__).resolve().parents[1]
 OUT_NEST = ROOT / "configs" / "tuned_params.yaml"
 OUT_FIDELITY = ROOT / "configs" / "tuned_params_fidelity.yaml"
+OUT_C7 = ROOT / "configs" / "tuned_params_c7.yaml"
 
-FIDELITY_EXPERIMENTS = {"tune_c2f", "tune_c3f"}
+FIDELITY_EXPERIMENTS = {"tune_c2f", "tune_c3f", "tune_c7f"}
 NEST_EXPERIMENTS = {"tune_c2", "tune_c3"}
+C7_EXPERIMENTS = {"tune_c7f"}
 
 
 def main(csv: str, controller: str, *params: str) -> None:
@@ -35,6 +37,7 @@ def main(csv: str, controller: str, *params: str) -> None:
     experiments = set(df["experiment"])
     is_fidelity = bool(experiments & FIDELITY_EXPERIMENTS)
     is_nest = bool(experiments & NEST_EXPERIMENTS)
+    is_c7 = bool(experiments & C7_EXPERIMENTS)
     if is_fidelity and is_nest:
         sys.exit(f"Refusing: {sorted(experiments)} mixes fidelity and nest tuning experiments.")
     if not (is_fidelity or is_nest):
@@ -44,6 +47,9 @@ def main(csv: str, controller: str, *params: str) -> None:
         sys.exit(f"Refusing: {sorted(experiments)} contains unrecognised experiments.")
 
     OUT = OUT_FIDELITY if is_fidelity else OUT_NEST
+    # C7 tuning writes to a separate file; fidelity file is not touched
+    if is_c7:
+        OUT = OUT_C7
     cols = [f"p_{p}" for p in params]
     table = (df[df["controller"] == controller].groupby(cols)
              .agg(delivered=("delivered", "median"), lost=("robots_lost", "mean"), runs=("seed", "size"))
@@ -51,7 +57,17 @@ def main(csv: str, controller: str, *params: str) -> None:
     print(table.head(10).to_string())
 
     best = select_best(df, list(params), controller)
-    if is_fidelity:
+    if is_c7:
+        # C7 tuning: write alert_limit and alert_duration to configs/tuned_params_c7.yaml.
+        # Do not touch the fidelity file.
+        current = yaml.safe_load(OUT.read_text()) if OUT.exists() else {}
+        current = current or {}
+        current.update(best)
+        header = (f"# Tuned parameters for C7 (journal package). Written by scripts/select_params.py.\n"
+                  f"# Last update: {controller} from {Path(csv).name}, code {df['git_commit'].iloc[0]}.\n"
+                  f"# Rule: highest median items delivered; ties -> lowest mean robots lost.\n")
+        OUT.write_text(header + yaml.safe_dump(current, sort_keys=True))
+    elif is_fidelity:
         # For fidelity, always rewrite the whole file (so it is self-contained and has search_start).
         # The file always contains search_start: last_pickup regardless of which parameters were just
         # selected, so tune_c3f's run (which only selects risk_k) preserves all C2 values.
