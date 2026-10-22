@@ -1,5 +1,5 @@
 # Tuned parameters for site-fidelity experiments (week-7 spec). Written by scripts/select_params.py.
-# Last update: C2 from tune_c2f.csv, code 7a1ffd6.
+# Last update: C3 from tune_c3f.csv, code inf.
 # Rule: highest median items delivered; ties -> lowest mean robots lost.
 # Contains search_start: last_pickup for all fidelity experiments.
 decay: 0.002
