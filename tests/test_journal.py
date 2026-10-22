@@ -753,3 +753,22 @@ class TestJournalFigures:
         paths = make_all(results, out)
         e12_paths = [p for p in paths if "e12" in p.stem.lower()]
         assert len(e12_paths) > 0
+
+
+def test_e10b_matches_e10_except_c7_params():
+    import yaml
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    e10 = yaml.safe_load((root / "configs/experiments/E10.yaml").read_text())
+    e10b = yaml.safe_load((root / "configs/experiments/E10b.yaml").read_text())
+    assert e10b["name"] == "E10b"
+    for key in ("controllers", "seeds", "paired_cells", "cells", "base"):
+        assert e10b[key] == e10[key]
+    assert e10b["overrides_file"] == ["configs/tuned_params_fidelity.yaml", "configs/tuned_params_c7b.yaml"]
+    c7b = yaml.safe_load((root / "configs/tuned_params_c7b.yaml").read_text())
+    assert c7b == {"alert_limit": 1, "alert_duration": 3000}
+
+
+def test_e10b_family_size_is_25():
+    from swarmhazard.analysis import J_FAMILY_SIZES
+    assert J_FAMILY_SIZES["E10b"] == 25

@@ -37,7 +37,7 @@ OUT = RESULTS / "analysis" / "journal"
 # Baseline commit to verify golden-case reproducibility against
 E1_COMMIT = "fe78c66"
 
-J_NAMES = ["E10", "E11", "E12"]
+J_NAMES = ["E10", "E10b", "E11", "E12"]
 
 
 def provenance_problems(name: str, df: pd.DataFrame) -> list[str]:

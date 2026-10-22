@@ -44,6 +44,7 @@ LEVELS = {
             "q_false\nnest", "q_false\nfidelity"],
     # Journal-package experiments
     "E10": ["baseline\nhazard", "hazard between\npatch & nest", "no hazard\n(random failures)"],
+    "E10b": ["baseline\nhazard", "hazard between\npatch & nest", "no hazard\n(random failures)"],
     "E11": ["scale 1\ncomm 1 m", "scale 1\ncomm 0.5 m", "scale 1\ncomm 0.25 m",
             "scale 2\ncomm 1 m", "scale 2\ncomm 0.5 m"],
     "E12": ["one hazard\n(baseline)", "two hazards", "two hazards\nlethality 0.1"],
@@ -98,7 +99,8 @@ def fig_e1(df: pd.DataFrame, out_dir: Path) -> list[Path]:
     return _save(fig, out_dir, "e1_baseline")
 
 
-CELL_TITLES = {"E10": ("E10: C7 risk-limit alerts vs baselines (site fidelity)", "e10_alerts"),
+CELL_TITLES = {"E10b": ("E10b: C7 with alerts that fire (alert_limit 1)", "e10b_alerts"),
+               "E10": ("E10: C7 risk-limit alerts vs baselines (site fidelity)", "e10_alerts"),
                "E11": ("E11: arena size and communication range sweep (site fidelity)", "e11_scale"),
                "E12": ("E12: two hazards (site fidelity)", "e12_two_hazards"),
                "E2": ("E2: hazard placement", "e2_placement"),
@@ -267,7 +269,7 @@ def _make_all(results_dir: Path, out_dir: Path) -> list[Path]:
     if path.exists():
         written += fig_cells(pd.read_csv(path), "E9", out_dir)
     # Journal-package experiments (E10, E11, E12)
-    for name in ("E10", "E11", "E12"):
+    for name in ("E10", "E10b", "E11", "E12"):
         path = results_dir / f"{name}.csv"
         if path.exists():
             written += fig_cells(pd.read_csv(path), name, out_dir)

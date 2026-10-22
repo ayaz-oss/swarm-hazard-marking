@@ -525,7 +525,7 @@ J_DESCRIPTIVE_COLS = ["alerts_sent", "known_frac",
 # E10: 3 cells x 3 non-C2 x 2 metrics  +  2 cross-cell C2 x 2 metrics  +  3 C7-vs-C1  = 25
 # E11: 5 cells x 2 non-C2 x 2 metrics  +  4 cross-cell C2 x 2 metrics  +  5x2 C6-vs-C5 = 38
 # E12: 3 cells x 4 non-C2 x 2 metrics  +  2 cross-cell C2 x 2 metrics               = 28
-J_FAMILY_SIZES = {"E10": 25, "E11": 38, "E12": 28}
+J_FAMILY_SIZES = {"E10": 25, "E10b": 25, "E11": 38, "E12": 28}
 
 _J_METRICS = ("delivered", "robots_lost")
 _J_CONTROLLERS_ORDERED = CONTROLLERS + ["C7"]
@@ -590,7 +590,7 @@ def journal_tests(name: str, df: pd.DataFrame, rng: np.random.Generator,
                 rows.append(row)
 
     # 3. E10 extra: C7 vs C1 on robots_lost in every cell
-    if name == "E10" and "C7" in ctrl_present and "C1" in ctrl_present:
+    if name in ("E10", "E10b") and "C7" in ctrl_present and "C1" in ctrl_present:
         for cell in cells:
             try:
                 x, y = paired(df, "robots_lost", "C7", "C1", cell=cell)

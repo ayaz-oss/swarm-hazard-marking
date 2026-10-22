@@ -316,3 +316,17 @@ Family sizes: E10 3 × 3 × 2 + 2 × 2 + 3 = 25; E11 5 × 2 × 2 + 4 × 2 + 5 ×
 Descriptive: medians with bootstrap CIs of `delivered`, `robots_lost`, `auc_final` (E12 also per
 hazard), AUC over marked runs, `repellent_in_hazard`, `known_frac` (C6), `alerts_sent` (C7). Golden
 cases recorded at E1's commit must still reproduce bit-identically.
+
+### E10b: C7 with alerts that fire (added 2026-10-22, after E10 and tune_c7f were seen; before any E10b data exist)
+
+**Why.** The pre-registered C7 grid was poorly designed: with `alert_decay` 0.001 a robot's risk score
+rarely reaches 2 or 3, so alerts almost never fired at those limits (tune_c7f mean alerts per run
+0.00–0.10; in E10, 0 in cells 0 and 2 and a mean of 0.08 in cell 1). The rule then selected
+`alert_limit` 3 on noise, so the C7 tested in E10 is effectively C1. E10 stays reported as run.
+
+**E10b** repeats E10 exactly (controllers C0, C1, C2, C7; the same three cells; 100 seeds;
+`paired_cells: true`; site-fidelity parameters) with `alert_limit` = 1, the only grid value at which
+alerts fired, and `alert_duration` = 3000, the best duration at `alert_limit` 1 in tune_c7f by the
+pre-registered rule (median delivered 137.5). This choice was made after seeing tune_c7f and E10 and
+is disclosed as such. Analysis: identical to E10 (25 tests, one Holm family), plus the descriptive
+`alerts_sent`.

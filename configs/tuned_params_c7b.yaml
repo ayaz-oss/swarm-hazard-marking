@@ -1,0 +1,4 @@
+# E10b (journal package, follow-up): C7 with alerts that fire. Chosen after tune_c7f and E10
+# were seen (docs/hypotheses.md, E10b). Not produced by select_params.py.
+alert_limit: 1
+alert_duration: 3000
