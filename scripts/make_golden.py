@@ -65,6 +65,19 @@ GOLDEN_CASES = {
                     "search_start": "last_pickup"},
     "C4_fidelity": {"controller": "C4", "lethality": 0.2, "n_steps": 3000,
                     "search_start": "last_pickup"},
+    # Journal-package: C7 and arena_scale
+    "C7": {"controller": "C7", "lethality": 0.2, "n_steps": 3000,
+           "alert_limit": 2.0, "alert_duration": 1000, "alert_decay": 0.001, "alert_radius": 1.0},
+    "C7_fidelity": {"controller": "C7", "lethality": 0.2, "n_steps": 3000,
+                    "alert_limit": 2.0, "alert_duration": 1000, "alert_decay": 0.001, "alert_radius": 1.0,
+                    "search_start": "last_pickup"},
+    # arena_scale=2: all spatial fields doubled; using C0 to keep it fast
+    "C0_scale2": {"controller": "C0", "lethality": 0.2, "n_steps": 1000,
+                  "arena_size": 20.0, "n_robots": 80,
+                  "nest_center": (10.0, 10.0),
+                  "patches": ((5.0, 5.0, 0.75, 10), (15.0, 5.0, 0.75, 10),
+                               (5.0, 15.0, 0.75, 10), (15.0, 15.0, 0.75, 10)),
+                  "hazards": ((17.62, 12.38, 1.0),)},
 }
 
 
