@@ -20,6 +20,22 @@ def hazard_mask(world: World, field: RepellentField) -> np.ndarray:
     return in_hazard(world, pts).reshape(field.n, field.n)
 
 
+def per_hazard_masks(world: World, field: RepellentField) -> list[np.ndarray]:
+    """One mask per hazard (individual circles, not the union)."""
+    from swarmhazard.world import World as _World
+    gx, gy = np.meshgrid(field.centres, field.centres, indexing="ij")
+    pts = np.column_stack((gx.ravel(), gy.ravel()))
+    masks = []
+    for i in range(len(world.hazard_r)):
+        w_single = _World(
+            world.item_pos, world.item_patch,
+            world.patch_xy, world.patch_r,
+            world.hazard_xy[i:i+1], world.hazard_r[i:i+1],
+        )
+        masks.append(in_hazard(w_single, pts).reshape(field.n, field.n))
+    return masks
+
+
 def repellent_in_hazard_share(grid: np.ndarray, mask: np.ndarray, is_marking: bool) -> float:
     """Share of the repellent field's total mass that lies inside the true hazard mask.
 

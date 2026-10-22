@@ -1,0 +1,15 @@
+# E12: two hazards (journal spec section 3).
+# Cell 0 is the single-hazard baseline (next to patch (7.5, 7.5)).
+# Cell 1 adds a mirror hazard next to patch (2.5, 2.5).
+# Cell 2: same two hazards with lethality 0.1.
+# AUC uses the union of both hazard masks; per-hazard AUC columns are also reported.
+name: E12
+base: configs/baseline.yaml
+controllers: [C0, C1, C2, C3, C4]
+seeds: 100
+overrides_file: configs/tuned_params_fidelity.yaml
+paired_cells: true
+cells:
+  - {}                                                                         # 0: one hazard (baseline)
+  - {hazards: [[8.81, 6.19, 1.0], [1.19, 3.81, 1.0]]}                         # 1: two hazards
+  - {hazards: [[8.81, 6.19, 1.0], [1.19, 3.81, 1.0]], lethality: 0.1}         # 2: two hazards, lethality 0.1

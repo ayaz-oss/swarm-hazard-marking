@@ -509,3 +509,146 @@ def week7_descriptive(df: pd.DataFrame, rng: np.random.Generator, n_boot: int = 
     extra = pd.DataFrame(rows)
     base = base.drop(columns=[c for c in base if c in extra and c not in ("cell", "controller")])
     return base.merge(extra, on=["cell", "controller"])
+
+
+# ---------------------------------------------------------------------------
+# Journal-package analysis (E10, E11, E12; docs/hypotheses.md last section)
+# Pre-registered 2026-10-22.
+# ---------------------------------------------------------------------------
+
+# Extra columns for journal descriptive tables
+J_DESCRIPTIVE_COLS = ["alerts_sent", "known_frac",
+                      "auc_final", "auc_final_h0", "auc_final_h1",
+                      "repellent_in_hazard"]
+
+# Pre-registered Holm family sizes (docs/hypotheses.md):
+# E10: 3 cells x 3 non-C2 x 2 metrics  +  2 cross-cell C2 x 2 metrics  +  3 C7-vs-C1  = 25
+# E11: 5 cells x 2 non-C2 x 2 metrics  +  4 cross-cell C2 x 2 metrics  +  5x2 C6-vs-C5 = 38
+# E12: 3 cells x 4 non-C2 x 2 metrics  +  2 cross-cell C2 x 2 metrics               = 28
+J_FAMILY_SIZES = {"E10": 25, "E10b": 25, "E11": 38, "E12": 28}
+
+_J_METRICS = ("delivered", "robots_lost")
+_J_CONTROLLERS_ORDERED = CONTROLLERS + ["C7"]
+
+
+def journal_tests(name: str, df: pd.DataFrame, rng: np.random.Generator,
+                  n_boot: int = N_BOOT) -> pd.DataFrame:
+    """One Holm family per journal experiment (pre-registered 2026-10-22).
+
+    All experiments:
+      1. Within each cell: each non-C2 controller vs C2 on delivered and robots_lost.
+         Friedman p per cell reported alongside (NOT counted in the Holm family).
+      2. C2 cross-cell: each cell (1+) vs cell 0 on delivered and robots_lost.
+    E10: also C7 vs C1 on robots_lost in every cell.
+    E11: also C6 vs C5 on delivered and robots_lost in every cell.
+    Single Holm pass over ALL rows at the end.
+    """
+    rows = []
+    cells = sorted(df["cell"].unique())
+    ctrl_present = set(df["controller"].unique())
+
+    # 1. Within-cell: each non-C2 vs C2
+    for cell in cells:
+        sub = df[df["cell"] == cell]
+        for metric in _J_METRICS:
+            # Friedman once per (cell, metric)
+            present_ctrl = [c for c in _J_CONTROLLERS_ORDERED if c in ctrl_present]
+            try:
+                wide = (sub.pivot(index="seed", columns="controller", values=metric)
+                        .reindex(columns=[c for c in present_ctrl if c in sub["controller"].unique()])
+                        .dropna().sort_index())
+            except Exception:
+                wide = pd.DataFrame()
+            friedman_p = _friedman(wide) if len(wide.columns) >= 2 else float("nan")
+            for c in _J_CONTROLLERS_ORDERED:
+                if c == "C2" or c not in ctrl_present:
+                    continue
+                try:
+                    x, y = paired(df, metric, c, "C2", cell=cell)
+                except (KeyError, ValueError):
+                    continue
+                row = compare(x, y, rng, n_boot)
+                row.update(kind="vs_C2", cell=int(cell), metric=metric, x=c, y="C2",
+                           p=wilcoxon_p(x, y, "two-sided"), friedman_p=friedman_p)
+                rows.append(row)
+
+    # 2. C2 cross-cell: each cell >= 1 vs cell 0
+    sub_c2 = df[df["controller"] == "C2"]
+    if not sub_c2.empty:
+        for cell in [c for c in cells if c != 0]:
+            for metric in _J_METRICS:
+                try:
+                    wide = (sub_c2.pivot(index="seed", columns="cell", values=metric)
+                            [[0, cell]].dropna().sort_index())
+                except (KeyError, ValueError):
+                    continue
+                x, y = wide[cell].to_numpy(float), wide[0].to_numpy(float)
+                row = compare(x, y, rng, n_boot)
+                row.update(kind="cross_cell", cell=int(cell), cell_y=0, metric=metric,
+                           x=f"C2@{cell}", y="C2@0",
+                           p=wilcoxon_p(x, y, "two-sided"), friedman_p=float("nan"))
+                rows.append(row)
+
+    # 3. E10 extra: C7 vs C1 on robots_lost in every cell
+    if name in ("E10", "E10b") and "C7" in ctrl_present and "C1" in ctrl_present:
+        for cell in cells:
+            try:
+                x, y = paired(df, "robots_lost", "C7", "C1", cell=cell)
+            except (KeyError, ValueError):
+                continue
+            row = compare(x, y, rng, n_boot)
+            row.update(kind="C7_vs_C1", cell=int(cell), metric="robots_lost",
+                       x="C7", y="C1",
+                       p=wilcoxon_p(x, y, "two-sided"), friedman_p=float("nan"))
+            rows.append(row)
+
+    # 4. E11 extra: C6 vs C5 on delivered and robots_lost in every cell
+    if name == "E11" and "C6" in ctrl_present and "C5" in ctrl_present:
+        for cell in cells:
+            for metric in _J_METRICS:
+                try:
+                    x, y = paired(df, metric, "C6", "C5", cell=cell)
+                except (KeyError, ValueError):
+                    continue
+                row = compare(x, y, rng, n_boot)
+                row.update(kind="C6_vs_C5", cell=int(cell), metric=metric,
+                           x="C6", y="C5",
+                           p=wilcoxon_p(x, y, "two-sided"), friedman_p=float("nan"))
+                rows.append(row)
+
+    out = pd.DataFrame(rows)
+    if len(out):
+        out["p_holm"] = holm(out["p"].to_numpy())
+    return out
+
+
+def journal_descriptive(name: str, df: pd.DataFrame, rng: np.random.Generator,
+                        n_boot: int = N_BOOT) -> pd.DataFrame:
+    """Extends week7_descriptive with per-hazard AUC columns (E12) if present."""
+    base = week7_descriptive(df, rng, n_boot)
+    # Per-hazard AUC columns: auc_final_h0, auc_final_h1 (already in J_DESCRIPTIVE_COLS above)
+    # week7_descriptive handles: repellent_in_hazard, known_frac, alerts_sent, auc_final, auc_series
+    # Add any per-hazard AUC columns not already present
+    hazard_cols = [c for c in df.columns if c.startswith("auc_final_h") and c not in base.columns]
+    if not hazard_cols:
+        return base
+    rows = []
+    for (cell, controller), sub in df.groupby(["cell", "controller"]):
+        row = {"cell": int(cell), "controller": controller}
+        idx = rng.integers(0, len(sub), size=(n_boot, len(sub)))
+        import warnings as _w
+        for col in hazard_cols:
+            values = sub[col].to_numpy(float)
+            row[f"{col}_n"] = int((~np.isnan(values)).sum())
+            if np.isnan(values).all():
+                row[f"{col}_median"] = row[f"{col}_lo"] = row[f"{col}_hi"] = float("nan")
+                continue
+            with _w.catch_warnings():
+                _w.simplefilter("ignore", RuntimeWarning)
+                row[f"{col}_median"] = float(np.nanmedian(values))
+                row[f"{col}_lo"], row[f"{col}_hi"] = _ci(np.nanmedian(values[idx], axis=1))
+        rows.append(row)
+    extra = pd.DataFrame(rows)
+    base = base.drop(columns=[c for c in base.columns if c in extra.columns
+                               and c not in ("cell", "controller")])
+    return base.merge(extra, on=["cell", "controller"])

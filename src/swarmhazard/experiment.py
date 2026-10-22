@@ -23,8 +23,12 @@ from swarmhazard.sim import run
 def load_experiment(path: Path, root: Path) -> dict:
     spec = yaml.safe_load(Path(path).read_text())
     shared = {}
-    if spec.get("overrides_file"):
-        shared.update(yaml.safe_load((root / spec["overrides_file"]).read_text()) or {})
+    ov_file = spec.get("overrides_file")
+    if ov_file:
+        # Support either a single path string or a list of paths (later entries win).
+        ov_files = [ov_file] if isinstance(ov_file, str) else list(ov_file)
+        for f in ov_files:
+            shared.update(yaml.safe_load((root / f).read_text()) or {})
     shared.update(spec.get("overrides") or {})
     spec["overrides"] = shared
     return spec

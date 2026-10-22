@@ -22,9 +22,9 @@ from __future__ import annotations
 import numpy as np
 
 from swarmhazard.config import Config
-from swarmhazard.controllers import MAPPED, MARKING, PERSONAL, RECORDS, avoidance, blocks_move, hazard_tangent
+from swarmhazard.controllers import ALERTS, MAPPED, MARKING, PERSONAL, RECORDS, avoidance, blocks_move, hazard_tangent
 from swarmhazard.geometry import norm
-from swarmhazard.metrics import field_auc, hazard_mask, repellent_in_hazard_share
+from swarmhazard.metrics import field_auc, hazard_mask, per_hazard_masks, repellent_in_hazard_share
 from swarmhazard.noise import next_blind
 from swarmhazard.pheromone import RepellentField
 from swarmhazard.records import SightingRecords
@@ -48,7 +48,19 @@ class Simulation:
                      if cfg.controller in PERSONAL else None)  # C5: maps[i] is robot i's own map
         self.records = (SightingRecords(cfg.n_robots, self.field, cfg.deposit_amount, cfg.deposit_sigma)
                         if cfg.controller in RECORDS else None)  # C6
+        # C7: per-robot risk scores and alert memory
+        if cfg.controller in ALERTS:
+            self._risk = np.zeros(cfg.n_robots, dtype=float)   # accumulated risk per robot
+            # _alert_mem[i] = list of (pos_array, expire_step) for robot i
+            self._alert_mem: list[list] = [[] for _ in range(cfg.n_robots)]
+        else:
+            self._risk = None
+            self._alert_mem = None
+        self.alerts_sent = 0  # total alerts broadcast across all robots
         self.hazard_mask = hazard_mask(self.world, self.field)
+        # Per-hazard masks (for descriptive AUC when >1 hazard)
+        self._per_hazard_masks = (per_hazard_masks(self.world, self.field)
+                                  if len(cfg.hazards) > 1 else [])
         self.auc_series: list[float] = []
         n = cfg.n_robots
         self.seen = np.zeros((n, n), dtype=bool)  # seen[i, j]: robot i has already marked wreck j
@@ -105,6 +117,8 @@ class Simulation:
             self._mark_personal()
         elif self.cfg.controller in RECORDS:
             self._mark_records()
+        elif self.cfg.controller in ALERTS:
+            self._update_c7()
         self._false_sightings(false_draw)
         if self.cfg.controller in MARKING:
             self.field.decay(self.cfg.decay)
@@ -166,9 +180,18 @@ class Simulation:
                 sw.heading[i_out] = np.arctan2(v_ob[still_out, 1], v_ob[still_out, 0])
 
         dead = np.flatnonzero(~sw.alive)
+        # For C7, compute per-robot active alert positions
+        alert_positions = None
+        if cfg.controller in ALERTS and self._alert_mem is not None:
+            alert_positions = [
+                np.array([p for p, exp in mem if exp > self.t], dtype=float).reshape(-1, 2)
+                for mem in self._alert_mem
+            ]
         steer = unit(sw.heading) + avoidance(cfg, sw.pos, sw.pos[dead], self.field, self.world,
                                              detected=self._detected[:, dead], maps=self.maps,
-                                             records=self.records, t=self.t)
+                                             records=self.records, t=self.t,
+                                             alive=sw.alive,
+                                             alert_positions=alert_positions)
         sw.heading[:] = np.where(sw.alive, np.arctan2(steer[:, 1], steer[:, 0]), sw.heading)
 
     def _move(self, alive: np.ndarray) -> None:
@@ -300,6 +323,45 @@ class Simulation:
             self.records.add(("wreck", j), sw.pos[j], int(i), self.t)
         self.seen[:, dead] |= visible
 
+    def _update_c7(self) -> None:
+        """C7: update per-robot risk scores and broadcast alerts.
+
+        1. Decay all live robots' risk scores.
+        2. For each new first-sighting of a wreck (same rule as C2), add 1 to the observer's risk.
+        3. Any live robot whose risk score >= alert_limit broadcasts an alert (its current position)
+           to all live robots within comm_range; the broadcaster's score resets to 0.
+        4. Dead robots neither send nor receive.
+        """
+        cfg, sw = self.cfg, self.swarm
+
+        # 1. Decay
+        alive_mask = sw.alive
+        self._risk[alive_mask] *= (1.0 - cfg.alert_decay)
+
+        # 2. New first sightings (same logic as _mark, but adds to risk instead of depositing)
+        if not sw.alive.all():
+            dead, visible, new = self._new_sightings()
+            for i, col in zip(*np.nonzero(new)):
+                if alive_mask[i]:
+                    self._risk[i] += 1.0
+            self.seen[:, dead] |= visible
+
+        # 3. Broadcast alerts from robots whose risk >= alert_limit
+        alert_robots = np.flatnonzero(alive_mask & (self._risk >= cfg.alert_limit))
+        if len(alert_robots) == 0:
+            return
+        live_robots = np.flatnonzero(alive_mask)
+        for sender in alert_robots:
+            self._risk[sender] = 0.0
+            # Receivers: live robots within comm_range (not relayed; sender may also receive its own)
+            dists = np.linalg.norm(sw.pos[live_robots] - sw.pos[sender], axis=1)
+            receivers = live_robots[dists < cfg.comm_range]
+            expire = self.t + cfg.alert_duration
+            pos_copy = sw.pos[sender].copy()
+            for r in receivers:
+                self._alert_mem[r].append((pos_copy, expire))
+            self.alerts_sent += 1
+
     def _share(self) -> None:
         """Synchronous one-hop exchange: each live robot keeps the cell-wise max of its map
         and the maps its live neighbours held before this exchange."""
@@ -344,6 +406,7 @@ class Simulation:
             "first_loss_step": self.first_loss_step,
             "steps": self.t,
             "false_sightings": self.false_sightings,
+            "alerts_sent": self.alerts_sent,
             "auc_final": self.auc_series[-1] if self.auc_series else float("nan"),
             "auc_mean": float(np.mean(self.auc_series)) if self.auc_series else float("nan"),
             "auc_series": ";".join(f"{a:.4f}" for a in self.auc_series),
@@ -363,6 +426,11 @@ class Simulation:
         }
         if self.records is not None:
             out["known_frac"] = self.records.known_frac(self.swarm.alive)
+        # Per-hazard AUC (descriptive only; only when there is more than one hazard)
+        if self._per_hazard_masks and self.cfg.controller in MAPPED:
+            grid = self._map_for_metrics()
+            for h_idx, h_mask in enumerate(self._per_hazard_masks):
+                out[f"auc_final_h{h_idx}"] = field_auc(grid, h_mask)
         if self.cfg.hazard_move_step >= 0:
             pre = self._pre or {"delivered_pre": self.delivered, "lost_pre": out["robots_lost"],
                                 "auc_pre": float("nan")}

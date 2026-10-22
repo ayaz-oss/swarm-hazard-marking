@@ -281,3 +281,52 @@ each experiment next to its counterpart.
 **New descriptive measures:** `repellent_in_hazard` (share of the final repellent mass inside the
 true hazard), AUC over marked runs only (with the count), `trip_steps_mean`, `search_steps_mean`,
 `nest_steps`. Golden cases recorded at E1's commit must still reproduce bit-identically.
+
+## Journal-package experiments (exploratory; added 2026-10-22, before any of their data exist; `docs/superpowers/specs/2026-10-22-journal-package.md`)
+
+Nothing above this section is changed. Site-fidelity model: every experiment loads
+`configs/tuned_params_fidelity.yaml`; 100 seeds per cell; `paired_cells: true`.
+
+**C7 (risk-limit alerts)** is an adaptation inspired by Hunt, Cullen and Hauert (2021): from the
+same first-sighting evidence as C2's marking, each robot accumulates a decaying risk score and,
+at `alert_limit`, broadcasts its position to live robots within `comm_range`; receivers avoid that
+position within `alert_radius` (1 m) for `alert_duration` steps; no environmental marks; C1-style
+wreck avoidance. **Tuning first** (`tune_c7f`, 20 seeds per cell, grid `alert_limit` {1, 2, 3} ×
+`alert_duration` {300, 1000, 3000}, `alert_decay` 0.001, rule: highest median delivered, ties →
+lowest mean robots lost), written to `configs/tuned_params_c7.yaml` and committed before E10.
+
+| Exp | Controllers | Cells, in order |
+|---|---|---|
+| E10 | C0, C1, C2, C7 | 0 baseline; 1 hazard at (6.25, 6.25) (between patch and nest); 2 no hazard + random_fail_rate 0.0000266 |
+| E11 | C2, C5, C6 | 0 n 20, comm 1 m; 1 n 20, comm 0.5 m; 2 n 20, comm 0.25 m; 3 arena_scale 2, n 80, comm 1 m; 4 arena_scale 2, n 80, comm 0.5 m |
+| E12 | C0–C4 | 0 one hazard (baseline); 1 two hazards (8.81, 6.19) and (1.19, 3.81); 2 the same two hazards, lethality 0.1 |
+
+`arena_scale` multiplies the arena, nest, patch and hazard positions (radii unchanged); with 1 it is
+bit-identical to earlier runs.
+
+**Analysis (all exploratory).** Paired two-sided Wilcoxon (Pratt), seed bootstrap as in the
+Statistics section, Friedman per cell reported alongside, and **one Holm family per experiment**:
+
+- every experiment: within each cell, each controller vs C2 on `delivered` and `robots_lost`; and
+  C2 in each cell vs cell 0 on `delivered` and `robots_lost`;
+- E10 also: C7 vs C1 on `robots_lost` in every cell;
+- E11 also: C6 vs C5 on `delivered` and `robots_lost` in every cell.
+
+Family sizes: E10 3 × 3 × 2 + 2 × 2 + 3 = 25; E11 5 × 2 × 2 + 4 × 2 + 5 × 2 = 38; E12 3 × 4 × 2 + 2 × 2 = 28.
+Descriptive: medians with bootstrap CIs of `delivered`, `robots_lost`, `auc_final` (E12 also per
+hazard), AUC over marked runs, `repellent_in_hazard`, `known_frac` (C6), `alerts_sent` (C7). Golden
+cases recorded at E1's commit must still reproduce bit-identically.
+
+### E10b: C7 with alerts that fire (added 2026-10-22, after E10 and tune_c7f were seen; before any E10b data exist)
+
+**Why.** The pre-registered C7 grid was poorly designed: with `alert_decay` 0.001 a robot's risk score
+rarely reaches 2 or 3, so alerts almost never fired at those limits (tune_c7f mean alerts per run
+0.00–0.10; in E10, 0 in cells 0 and 2 and a mean of 0.08 in cell 1). The rule then selected
+`alert_limit` 3 on noise, so the C7 tested in E10 is effectively C1. E10 stays reported as run.
+
+**E10b** repeats E10 exactly (controllers C0, C1, C2, C7; the same three cells; 100 seeds;
+`paired_cells: true`; site-fidelity parameters) with `alert_limit` = 1, the only grid value at which
+alerts fired, and `alert_duration` = 3000, the best duration at `alert_limit` 1 in tune_c7f by the
+pre-registered rule (median delivered 137.5). This choice was made after seeing tune_c7f and E10 and
+is disclosed as such. Analysis: identical to E10 (25 tests, one Holm family), plus the descriptive
+`alerts_sent`.

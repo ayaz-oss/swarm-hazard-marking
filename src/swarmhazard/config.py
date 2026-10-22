@@ -14,7 +14,7 @@ from pathlib import Path
 
 import yaml
 
-KNOWN_CONTROLLERS = ("C0", "C1", "C2", "C3", "C4", "C5", "C6")
+KNOWN_CONTROLLERS = ("C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7")
 
 
 @dataclass(frozen=True)
@@ -65,6 +65,12 @@ class Config:
     share_every: int = 10     # C5/C6: steps between exchanges (1 s)
     comm_range: float = 1.0   # C5/C6: m, robots this close exchange
 
+    # C7: risk-limit alerts (section 1)
+    alert_limit: float = 2.0       # risk score threshold for broadcasting an alert
+    alert_duration: int = 1000     # steps a received alert remains active
+    alert_decay: float = 0.001     # per-step multiplicative decay of risk score
+    alert_radius: float = 1.0      # radius (m) within which alerts repel
+
     # Repellent field
     grid_cell: float = 0.1
     deposit_amount: float = 1.0
@@ -106,6 +112,14 @@ class Config:
             raise ValueError(f"comm_range must be >= 0, got {self.comm_range}")
         if self.risk_k < 0:
             raise ValueError(f"risk_k must be >= 0, got {self.risk_k}")
+        if self.alert_limit < 0:
+            raise ValueError(f"alert_limit must be >= 0, got {self.alert_limit}")
+        if self.alert_duration < 1:
+            raise ValueError(f"alert_duration must be >= 1, got {self.alert_duration}")
+        if not 0.0 <= self.alert_decay <= 1.0:
+            raise ValueError(f"alert_decay must be in [0, 1], got {self.alert_decay}")
+        if self.alert_radius < 0:
+            raise ValueError(f"alert_radius must be >= 0, got {self.alert_radius}")
         if self.metric_every < 1:
             raise ValueError(f"metric_every must be >= 1, got {self.metric_every}")
 
@@ -117,7 +131,57 @@ def _freeze(value):
     return value
 
 
+def _apply_scale(data: dict) -> dict:
+    """Consume arena_scale from data and scale the relevant spatial fields in-place.
+
+    Scales: arena_size, nest_center, every patch centre (not radius), every hazard
+    centre (not radius), and hazards_after centres (not radii).
+    With arena_scale=1 the dict is returned unchanged (bit-identical behaviour).
+    """
+    scale = float(data.pop("arena_scale", 1.0))
+    if scale == 1.0:
+        return data
+    data = dict(data)  # shallow copy so we do not mutate the caller's dict
+
+    if "arena_size" in data:
+        data["arena_size"] = float(data["arena_size"]) * scale
+    else:
+        data["arena_size"] = Config.__dataclass_fields__["arena_size"].default * scale  # type: ignore[attr-defined]
+
+    if "nest_center" in data:
+        nc = data["nest_center"]
+        data["nest_center"] = [nc[0] * scale, nc[1] * scale]
+    else:
+        nc = Config.__dataclass_fields__["nest_center"].default  # type: ignore[attr-defined]
+        data["nest_center"] = [nc[0] * scale, nc[1] * scale]
+
+    def scale_patches(patches):
+        return [[p[0] * scale, p[1] * scale, p[2], p[3]] for p in patches]
+
+    def scale_hazards(hazards):
+        return [[h[0] * scale, h[1] * scale, h[2]] for h in hazards]
+
+    if "patches" in data:
+        data["patches"] = scale_patches(data["patches"])
+    else:
+        data["patches"] = scale_patches(
+            [list(p) for p in Config.__dataclass_fields__["patches"].default])  # type: ignore[attr-defined]
+
+    if "hazards" in data:
+        data["hazards"] = scale_hazards(data["hazards"])
+    else:
+        data["hazards"] = scale_hazards(
+            [list(h) for h in Config.__dataclass_fields__["hazards"].default])  # type: ignore[attr-defined]
+
+    if "hazards_after" in data and data["hazards_after"]:
+        data["hazards_after"] = scale_hazards(data["hazards_after"])
+
+    return data
+
+
 def from_dict(data: dict) -> Config:
+    data = dict(data)  # do not mutate caller's dict
+    data = _apply_scale(data)
     unknown = set(data) - {f.name for f in fields(Config)}
     if unknown:
         raise KeyError(f"Unknown config keys: {sorted(unknown)}")

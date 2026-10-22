@@ -32,6 +32,7 @@ from swarmhazard.world import World, in_hazard
 MARKING = frozenset({"C2", "C3"})
 PERSONAL = frozenset({"C5"})
 RECORDS = frozenset({"C6"})
+ALERTS = frozenset({"C7"})
 MAPPED = MARKING | PERSONAL | RECORDS  # controllers with a repellent map (localisation AUC)
 
 
@@ -85,10 +86,34 @@ def hazard_outward(world: World, pos: np.ndarray) -> np.ndarray:
     return diff[rows, nearest] / np.maximum(dist[rows, nearest], 1e-9)[:, None]
 
 
+def alert_repulsion(pos: np.ndarray, alert_pos: np.ndarray, alert_radius: float,
+                    repel_weight: float) -> np.ndarray:
+    """Repulsion from received alert positions (same wreck-repulsion form, scaled by repel_weight).
+
+    alert_pos: (A, 2) positions of active alerts a robot has received.
+    Returns (N, 2) push vectors (one entry per robot, already summed over alerts).
+    Each robot gets pushes only from alerts within alert_radius.
+    """
+    if len(alert_pos) == 0:
+        return np.zeros_like(pos)
+    diff = pos[:, None, :] - alert_pos[None, :, :]  # (N, A, 2)
+    dist = norm(diff)                               # (N, A)
+    in_range = (dist < alert_radius) & (dist > 1e-9)
+    weight = np.where(in_range, repel_weight * (1.0 - dist / alert_radius), 0.0)
+    direction = diff / np.maximum(dist, 1e-9)[..., None]
+    return (weight[..., None] * direction).sum(axis=1)  # (N, 2)
+
+
 def avoidance(cfg: Config, pos: np.ndarray, wreck_pos: np.ndarray, field: RepellentField,
               world: World, detected: np.ndarray | None = None,
-              maps: np.ndarray | None = None, records=None, t: int = 0) -> np.ndarray:
-    """Vector added to each robot's intended unit heading."""
+              maps: np.ndarray | None = None, records=None, t: int = 0,
+              alive: np.ndarray | None = None,
+              alert_positions: list | None = None) -> np.ndarray:
+    """Vector added to each robot's intended unit heading.
+
+    alert_positions: list of length n_robots; each element is an ndarray of shape (A_i, 2)
+      with the active alert positions robot i currently holds.  Used only for C7.
+    """
     if cfg.controller == "C0":
         return np.zeros_like(pos)
     if cfg.controller == "C1":
@@ -112,6 +137,18 @@ def avoidance(cfg: Config, pos: np.ndarray, wreck_pos: np.ndarray, field: Repell
         inside = in_hazard(world, pos)
         if inside.any():
             push[inside] = ESCAPE_WEIGHT * hazard_outward(world, pos[inside])
+        return push
+    if cfg.controller == "C7":
+        # C1-style wreck avoidance
+        push = cfg.wreck_weight * wreck_repulsion(pos, wreck_pos, cfg.sense_range, detected)
+        # Alert repulsion: each live robot is repelled from the alert positions it holds
+        if alert_positions is not None:
+            for i, aps in enumerate(alert_positions):
+                if alive is not None and not alive[i]:
+                    continue
+                if len(aps) > 0:
+                    ap_arr = np.asarray(aps, dtype=float)
+                    push[i] += alert_repulsion(pos[i:i+1], ap_arr, cfg.alert_radius, cfg.repel_weight)[0]
         return push
     raise ValueError(f"No avoidance rule for controller {cfg.controller!r}")
 

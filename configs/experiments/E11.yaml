@@ -1,0 +1,15 @@
+# E11: arena size and communication range sweep (journal spec section 2).
+# Robot density kept constant: n_robots = 20 x arena_scale^2.
+# arena_scale=2 doubles all spatial positions (centres only; radii unchanged).
+name: E11
+base: configs/baseline.yaml
+controllers: [C2, C5, C6]
+seeds: 100
+overrides_file: configs/tuned_params_fidelity.yaml
+paired_cells: true
+cells:
+  - {n_robots: 20}                                         # 0: scale 1, comm 1 m (baseline)
+  - {n_robots: 20, comm_range: 0.5}                        # 1: scale 1, comm 0.5 m
+  - {n_robots: 20, comm_range: 0.25}                       # 2: scale 1, comm 0.25 m
+  - {arena_scale: 2, n_robots: 80}                         # 3: scale 2 (20 m arena), comm 1 m
+  - {arena_scale: 2, n_robots: 80, comm_range: 0.5}        # 4: scale 2, comm 0.5 m

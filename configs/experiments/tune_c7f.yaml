@@ -1,0 +1,14 @@
+# Week-journal tuning of C7 under site fidelity.
+# alert_limit x alert_duration grid, alert_decay fixed at 0.001.
+# Writes best alert_limit and alert_duration to configs/tuned_params_c7.yaml.
+name: tune_c7f
+base: configs/baseline.yaml
+controllers: [C7]
+seeds: 20
+overrides_file: configs/tuned_params_fidelity.yaml
+overrides:
+  alert_decay: 0.001
+  alert_radius: 1.0
+grid:
+  alert_limit: [1, 2, 3]
+  alert_duration: [300, 1000, 3000]
