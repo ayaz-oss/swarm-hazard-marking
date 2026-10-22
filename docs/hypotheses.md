@@ -237,3 +237,47 @@ Family size: 82 tests. Reported descriptively (medians with bootstrap CIs): `del
 C0, C1 and C4 are identical in cells 0 and 4, and in cells 1 and 5 (none of them reacts to
 false sightings). E9 is accepted only if every golden case recorded at E1's commit is
 unchanged at its commit.
+
+## Week-7 replication under site fidelity (added 2026-10-22, before any of its data exist; `docs/superpowers/specs/2026-10-22-week-7-addendum.md`)
+
+Nothing above this section is changed. Site fidelity (`search_start: last_pickup`, defined in the
+week-6 section) becomes the main foraging model; E1–E8 are kept as the nest-restart model.
+
+**Disclosure.** This is a pre-registered *replication*, not a blind test. E9 (week 6) already
+showed, in its baseline-with-fidelity cell (cell 1, 100 seeds, C2's nest-restart tuning), that C2
+delivered more than C0 (Holm p = 0.026 within E9) and lost fewer robots than C1 (Holm p < 1e-8).
+The H1F and H2F results are therefore partly anticipated.
+
+**Re-tuning (runs first).** `tune_c2f` and `tune_c3f`: the grids, seeds (20 per cell) and selection
+rule of the "Tuning protocol" section, with `search_start: last_pickup`. The selected values are
+written to `configs/tuned_params_fidelity.yaml` (with `search_start: last_pickup`) and committed
+before any main run below. Whatever the tuning selects is used; it is not revisited after the main
+results are seen.
+
+**Experiments.** E1F, E2F, E3F, E4F, E5F, E6bF, E7bF, E8F: the controllers and cells of E1, E2, E3,
+E4, E5, E6b, E7b and E8 (in the same order), 100 seeds per cell, `overrides_file:
+configs/tuned_params_fidelity.yaml`, and `paired_cells: true` in every multi-cell experiment.
+
+**Confirmatory replication (E1F; E2F cell 3 for H3F).** The same claims and tests as H1–H4:
+
+| ID | Claim | Experiment | Test |
+|---|---|---|---|
+| H1F | C2 delivers more items than C0 | E1F | one-sided Wilcoxon signed-rank, C2 − C0, delivered |
+| H2F | C2 loses fewer robots than C1 | E1F | one-sided Wilcoxon signed-rank, C1 − C2, robots_lost |
+| H3F | C2's item cost vs C0 is small with random failures | E2F cell 3 | lower bootstrap 95% CI bound of A12(C2, C0) on delivered > 0.36 |
+| H4F | C3 delivers more items than C2 | E1F | one-sided Wilcoxon signed-rank, C3 − C2, delivered |
+
+Holm correction across H1F, H2F and H4F at α = 0.05; H3F by its CI rule only. Statistics as in the
+"Statistics" section (Pratt zeros, seed bootstrap, 10,000 resamples, generator seed 20261016).
+
+**Exploratory.** Each of E2F–E8F is analysed as its counterpart was (E2F–E5F: Friedman per cell,
+two-sided Wilcoxon vs C2, Holm within experiment; E6bF, E7bF, E8F: the week-5 families). Because
+E2F–E5F now have paired cells, each also gets across-cell tests for C2 only (each cell vs cell 0,
+`delivered` and `robots_lost`), in the same Holm family as its within-cell tests.
+
+**Comparison with the nest-restart model** (descriptive only, unpaired across models): medians of
+each experiment next to its counterpart.
+
+**New descriptive measures:** `repellent_in_hazard` (share of the final repellent mass inside the
+true hazard), AUC over marked runs only (with the count), `trip_steps_mean`, `search_steps_mean`,
+`nest_steps`. Golden cases recorded at E1's commit must still reproduce bit-identically.
