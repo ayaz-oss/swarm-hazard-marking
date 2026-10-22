@@ -1,0 +1,6 @@
+# E1F: site-fidelity replication of E1 (week-7 spec section 3). Confirmatory H1F, H2F, H4F.
+name: E1F
+base: configs/baseline.yaml
+controllers: [C0, C1, C2, C3, C4]
+seeds: 100
+overrides_file: configs/tuned_params_fidelity.yaml

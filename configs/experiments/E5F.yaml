@@ -1,0 +1,11 @@
+# E5F: site-fidelity replication of E5 (week-7 spec section 3). Cells paired by seed.
+name: E5F
+base: configs/baseline.yaml
+controllers: [C0, C1, C2, C3, C4]
+seeds: 100
+overrides_file: configs/tuned_params_fidelity.yaml
+paired_cells: true
+cells:
+  - {hazards: [[8.4546, 6.5454, 0.5]]}   # 0: radius 0.5 m
+  - {}                                  # 1: radius 1 m (baseline)
+  - {hazards: [[9.5153, 5.4847, 2.0]]}   # 2: radius 2 m

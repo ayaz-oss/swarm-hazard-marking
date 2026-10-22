@@ -20,6 +20,20 @@ def hazard_mask(world: World, field: RepellentField) -> np.ndarray:
     return in_hazard(world, pts).reshape(field.n, field.n)
 
 
+def repellent_in_hazard_share(grid: np.ndarray, mask: np.ndarray, is_marking: bool) -> float:
+    """Share of the repellent field's total mass that lies inside the true hazard mask.
+
+    NaN when the controller does not mark (is_marking is False), or when the field
+    is empty (total mass is zero). Does not change behaviour or random streams.
+    """
+    if not is_marking:
+        return float("nan")
+    total = float(grid.sum())
+    if total == 0.0:
+        return float("nan")
+    return float(grid[mask].sum() / total)
+
+
 def field_auc(grid: np.ndarray, mask: np.ndarray) -> float:
     pos = grid[mask]
     neg = grid[~mask]

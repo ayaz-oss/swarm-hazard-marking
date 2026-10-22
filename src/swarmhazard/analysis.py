@@ -171,6 +171,13 @@ WEEK5 = {
     "E8": {"metrics": ("delivered_post", "lost_post"), "pairs": [],
            "cross": [("C2", 2, 1, ("delivered_pre", "lost_pre", "delivered_post", "lost_post")),
                      ("C2", 1, 0, ("delivered_post", "lost_post"))]},
+    # Week-7 F counterparts: identical families to their originals.
+    "E6bF": {"metrics": ("delivered", "robots_lost"), "pairs": [("C6", "C5")], "cross": []},
+    "E7bF": {"metrics": ("delivered", "robots_lost"), "pairs": [],
+             "cross": [(c, k, 0, ("delivered", "robots_lost")) for c in ("C1", "C2", "C3") for k in range(1, 6)]},
+    "E8F": {"metrics": ("delivered_post", "lost_post"), "pairs": [],
+            "cross": [("C2", 2, 1, ("delivered_pre", "lost_pre", "delivered_post", "lost_post")),
+                      ("C2", 1, 0, ("delivered_post", "lost_post"))]},
 }
 # Runs that must be identical across paired cells (reported, not tested).
 IDENTITIES = {"E7b": [("C0", (0, 1, 2, 3, 4, 5)), ("C1", (0, 5))],
@@ -178,7 +185,10 @@ IDENTITIES = {"E7b": [("C0", (0, 1, 2, 3, 4, 5)), ("C1", (0, 5))],
               # E9: C0, C1, C4 don't react to false sightings, so they're identical across
               # cells that differ only in q_false (cells 0 vs 4, and 1 vs 5).
               "E9": [("C0", (0, 4)), ("C0", (1, 5)), ("C1", (0, 4)), ("C1", (1, 5)),
-                     ("C4", (0, 4)), ("C4", (1, 5))]}
+                     ("C4", (0, 4)), ("C4", (1, 5))],
+              # Week-7 F counterparts: same paired-cell identity expectations as their originals.
+              "E7bF": [("C0", (0, 1, 2, 3, 4, 5)), ("C1", (0, 5))],
+              "E8F": [("C0", (1, 2)), ("C1", (1, 2)), ("C4", (1, 2))]}
 # Every behavioural outcome column. false_sightings is deliberately left out: it counts noise
 # events (phantoms are counted even by controllers that ignore them, e.g. C0 in E7b cell 5),
 # not behaviour.
@@ -399,6 +409,91 @@ def week6_descriptive(df: pd.DataFrame, rng: np.random.Generator, n_boot: int = 
         row = {"cell": int(cell), "controller": controller}
         row["marked_runs"] = (int(sum(_marked(s) for s in sub["auc_series"].fillna("")))
                               if "auc_series" in sub else 0)
+        idx = rng.integers(0, len(sub), size=(n_boot, len(sub)))
+        for col in extra_cols:
+            values = sub[col].to_numpy(float)
+            row[f"{col}_n"] = int((~np.isnan(values)).sum())
+            if np.isnan(values).all():
+                row[f"{col}_median"] = row[f"{col}_lo"] = row[f"{col}_hi"] = float("nan")
+                continue
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", RuntimeWarning)
+                row[f"{col}_median"] = float(np.nanmedian(values))
+                row[f"{col}_lo"], row[f"{col}_hi"] = _ci(np.nanmedian(values[idx], axis=1))
+        rows.append(row)
+    extra = pd.DataFrame(rows)
+    base = base.drop(columns=[c for c in base if c in extra and c not in ("cell", "controller")])
+    return base.merge(extra, on=["cell", "controller"])
+
+
+# ---------------------------------------------------------------------------
+# Week-7 analysis (F experiments; docs/hypotheses.md "Week-7 replication under site fidelity")
+# ---------------------------------------------------------------------------
+
+# Extra columns added in week-7 (repellent_in_hazard + week-6 trip/nest metrics)
+W7_DESCRIPTIVE_COLS = ["repellent_in_hazard", "auc_final", "false_sightings",
+                       "delivered_pre", "lost_pre", "delivered_post", "lost_post",
+                       "auc_pre", "auc_old_final", "known_frac",
+                       "trip_steps_mean", "search_steps_mean", "nest_steps"]
+# E2F–E5F: across-cell tests for C2 only (each cell vs cell 0, delivered and robots_lost).
+# These cells all have paired_cells=true so cross-cell comparisons are paired by seed.
+E2F_CELLS = 4   # cells 0-3
+E3F_CELLS = 5   # n_robots levels
+E4F_CELLS = 4   # lethality levels
+E5F_CELLS = 3   # radius levels
+
+
+def _cross_cell_c2(df: pd.DataFrame, n_cells: int, rng: np.random.Generator,
+                   n_boot: int = N_BOOT) -> list[pd.DataFrame]:
+    """For C2, each cell vs cell 0 on delivered and robots_lost (paired by seed)."""
+    parts = []
+    for cell in range(1, n_cells):
+        parts.append(cross_cell(df, "C2", cell, 0, ("delivered", "robots_lost"), rng, n_boot))
+    return parts
+
+
+def week7_e2e5_tests(name: str, df: pd.DataFrame, rng: np.random.Generator,
+                     n_boot: int = N_BOOT) -> pd.DataFrame:
+    """Exploratory within-cell tests (Friedman + vs C2) PLUS across-cell C2 tests in one Holm family.
+
+    Used for E2F, E3F, E4F, E5F, which all have paired_cells=True.
+    """
+    n_cells = {"E2F": E2F_CELLS, "E3F": E3F_CELLS, "E4F": E4F_CELLS, "E5F": E5F_CELLS}[name]
+    parts = [exploratory(df, rng, n_boot).assign(kind="vs_C2")]
+    parts.extend(_cross_cell_c2(df, n_cells, rng, n_boot))
+    out = pd.concat(parts, ignore_index=True)
+    out["p_holm"] = holm(out["p"].to_numpy())
+    return out
+
+
+def week7_descriptive(df: pd.DataFrame, rng: np.random.Generator, n_boot: int = N_BOOT) -> pd.DataFrame:
+    """week5_descriptive extended with week-7 columns (repellent_in_hazard, AUC over marked runs).
+
+    Also reports auc_final_marked_median and auc_final_marked_n: AUC restricted to runs
+    that have any mark (auc_series contains a value != 0.5).
+    """
+    base = descriptive(df, rng, n_boot)
+    extra_cols = [c for c in W7_DESCRIPTIVE_COLS if c in df]
+    rows = []
+    for (cell, controller), sub in df.groupby(["cell", "controller"]):
+        row = {"cell": int(cell), "controller": controller}
+        # marked_runs: runs where auc_series has at least one value != 0.5
+        row["marked_runs"] = (int(sum(_marked(s) for s in sub["auc_series"].fillna("")))
+                              if "auc_series" in sub else 0)
+        # AUC over marked runs only
+        if "auc_final" in sub and "auc_series" in sub:
+            marked_mask = np.array([_marked(s) for s in sub["auc_series"].fillna("")])
+            auc_marked = sub["auc_final"].to_numpy(float)[marked_mask]
+            row["auc_final_marked_n"] = int(len(auc_marked))
+            if len(auc_marked) > 0:
+                idx_m = rng.integers(0, len(auc_marked), size=(n_boot, len(auc_marked)))
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", RuntimeWarning)
+                    row["auc_final_marked_median"] = float(np.nanmedian(auc_marked))
+                    row["auc_final_marked_lo"], row["auc_final_marked_hi"] = _ci(
+                        np.nanmedian(auc_marked[idx_m], axis=1))
+            else:
+                row["auc_final_marked_median"] = row["auc_final_marked_lo"] = row["auc_final_marked_hi"] = float("nan")
         idx = rng.integers(0, len(sub), size=(n_boot, len(sub)))
         for col in extra_cols:
             values = sub[col].to_numpy(float)
