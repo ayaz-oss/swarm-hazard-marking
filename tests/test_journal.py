@@ -637,6 +637,66 @@ class TestJournalAnalysis:
         assert isinstance(desc, pd.DataFrame)
         assert len(desc) > 0
 
+    def _make_experiment_df(self, controllers, n_cells, n_seeds=60, name="E10",
+                            extra_cols=None):
+        """Build a minimal but valid experiment DataFrame."""
+        rng = np.random.default_rng(99)
+        rows = []
+        for cell in range(n_cells):
+            for ctrl in controllers:
+                for seed in range(n_seeds):
+                    row = {
+                        "experiment": name, "cell": cell, "controller": ctrl, "seed": seed,
+                        "delivered": int(rng.integers(50, 200)),
+                        "robots_lost": int(rng.integers(0, 10)),
+                        "picked_up": 100, "items_lost": 0, "carrying": 0,
+                        "steps": 10000, "false_sightings": 0,
+                        "auc_final": float("nan"), "auc_mean": float("nan"),
+                        "auc_series": "", "hazard_area": 3.14,
+                        "repellent_in_hazard": float("nan"),
+                        "trip_steps_mean": float("nan"),
+                        "search_steps_mean": float("nan"),
+                        "nest_steps": 0, "alerts_sent": 0, "first_loss_step": -1,
+                    }
+                    if extra_cols:
+                        row.update(extra_cols)
+                    rows.append(row)
+        return pd.DataFrame(rows)
+
+    def test_e10_family_size_is_25(self):
+        """E10 Holm family must have exactly 25 tests (pre-registered)."""
+        from swarmhazard.analysis import journal_tests, BOOT_SEED, J_FAMILY_SIZES
+        df = self._make_experiment_df(("C0", "C1", "C2", "C7"), n_cells=3, name="E10")
+        result = journal_tests("E10", df, np.random.default_rng(BOOT_SEED), n_boot=200)
+        assert len(result) == J_FAMILY_SIZES["E10"], (
+            f"E10 family size: got {len(result)}, expected {J_FAMILY_SIZES['E10']}")
+
+    def test_e11_family_size_is_38(self):
+        """E11 Holm family must have exactly 38 tests (pre-registered)."""
+        from swarmhazard.analysis import journal_tests, BOOT_SEED, J_FAMILY_SIZES
+        df = self._make_experiment_df(("C2", "C5", "C6"), n_cells=5, name="E11")
+        result = journal_tests("E11", df, np.random.default_rng(BOOT_SEED), n_boot=200)
+        assert len(result) == J_FAMILY_SIZES["E11"], (
+            f"E11 family size: got {len(result)}, expected {J_FAMILY_SIZES['E11']}")
+
+    def test_e12_family_size_is_28(self):
+        """E12 Holm family must have exactly 28 tests (pre-registered)."""
+        from swarmhazard.analysis import journal_tests, BOOT_SEED, J_FAMILY_SIZES
+        df = self._make_experiment_df(("C0", "C1", "C2", "C3", "C4"), n_cells=3, name="E12")
+        result = journal_tests("E12", df, np.random.default_rng(BOOT_SEED), n_boot=200)
+        assert len(result) == J_FAMILY_SIZES["E12"], (
+            f"E12 family size: got {len(result)}, expected {J_FAMILY_SIZES['E12']}")
+
+    def test_p_holm_equals_holm_of_p(self):
+        """p_holm column must equal holm(p) applied over the whole family."""
+        from swarmhazard.analysis import journal_tests, holm, BOOT_SEED
+        import numpy as _np
+        df = self._make_experiment_df(("C0", "C1", "C2", "C7"), n_cells=3, name="E10")
+        result = journal_tests("E10", df, _np.random.default_rng(BOOT_SEED), n_boot=200)
+        expected = holm(result["p"].to_numpy())
+        _np.testing.assert_allclose(result["p_holm"].to_numpy(), expected,
+                                    err_msg="p_holm must equal holm(p) over the whole family")
+
 
 # ---------------------------------------------------------------------------
 # Figure smoke tests

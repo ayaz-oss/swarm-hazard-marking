@@ -1,11 +1,11 @@
-"""Exploratory analysis of the journal-package experiments (E10, E11, E12).
+"""Analysis of the journal-package experiments (E10, E11, E12).
 
-Reads results/E10.csv, E11.csv, E12.csv. Accepted only if each CSV ran from a clean commit
-that reproduces every golden case (same check as analyse_week7.py). Writes:
+Reads results/E10.csv, E11.csv, E12.csv.  Accepted only if each CSV ran from a
+clean commit that reproduces every golden case (same provenance check as
+analyse_week7.py).  Writes:
   results/analysis/journal/
-    <name>_descriptive.csv       per cell × controller
+    <name>_descriptive.csv       per cell x controller
     <name>_tests.csv             per experiment tests (one Holm family per experiment)
-    e10_c7_vs_c1.csv             E10: C7 vs C1 robots_lost per cell
 
 Usage: python scripts/analyse_journal.py
 """
@@ -25,19 +25,16 @@ from analyse import _golden_at, _golden_branch_problems, completeness_problems, 
 
 from swarmhazard.analysis import (  # noqa: E402
     BOOT_SEED,
-    compare,
-    holm,
-    wilcoxon_p,
-    week7_descriptive,
-    exploratory,
-    paired,
+    journal_tests,
+    journal_descriptive,
+    J_FAMILY_SIZES,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "results"
 OUT = RESULTS / "analysis" / "journal"
 
-# Same baseline commit as week-7 (or the journal-package one once data is run)
+# Baseline commit to verify golden-case reproducibility against
 E1_COMMIT = "fe78c66"
 
 J_NAMES = ["E10", "E11", "E12"]
@@ -61,41 +58,6 @@ def provenance_problems(name: str, df: pd.DataFrame) -> list[str]:
     return _golden_branch_problems(name, df, E1_COMMIT, c, ROOT)
 
 
-def journal_tests(name: str, df: pd.DataFrame, rng: np.random.Generator,
-                  n_boot: int = 10_000) -> pd.DataFrame:
-    """One Holm family per experiment.
-
-    For all experiments: Friedman per cell + two-sided Wilcoxon vs C2 on delivered and robots_lost.
-    E10 additionally: C7 vs C1 on robots_lost in every cell.
-    """
-    # Standard exploratory (Friedman + vs C2)
-    parts = [exploratory(df, rng, n_boot).assign(kind="vs_C2")]
-
-    # E10 extra: C7 vs C1 robots_lost in every cell
-    if name == "E10" and "C7" in df["controller"].unique() and "C1" in df["controller"].unique():
-        for cell in sorted(df["cell"].unique()):
-            try:
-                x, y = paired(df, "robots_lost", "C7", "C1", cell=cell)
-            except (KeyError, ValueError):
-                continue
-            row = compare(x, y, rng, n_boot)
-            row.update(kind="C7_vs_C1", cell=int(cell), metric="robots_lost",
-                       x="C7", y="C1",
-                       p=wilcoxon_p(x, y, "two-sided"),
-                       friedman_p=float("nan"))
-            parts.append(pd.DataFrame([row]))
-
-    out = pd.concat(parts, ignore_index=True)
-    out["p_holm"] = holm(out["p"].to_numpy())
-    return out
-
-
-def journal_descriptive(name: str, df: pd.DataFrame, rng: np.random.Generator,
-                        n_boot: int = 10_000) -> pd.DataFrame:
-    """week7_descriptive, which already handles alerts_sent and known_frac gracefully."""
-    return week7_descriptive(df, rng, n_boot)
-
-
 def main() -> int:
     missing = [n for n in J_NAMES if not (RESULTS / f"{n}.csv").exists()]
     if missing:
@@ -116,27 +78,26 @@ def main() -> int:
         return 1
 
     OUT.mkdir(parents=True, exist_ok=True)
-    rng = np.random.default_rng(BOOT_SEED)
 
     for name, df in frames.items():
+        rng = np.random.default_rng(BOOT_SEED)
+
         # Descriptive table
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", RuntimeWarning)
-            desc = journal_descriptive(name, df, np.random.default_rng(BOOT_SEED))
+            desc = journal_descriptive(name, df, rng)
         desc.to_csv(OUT / f"{name}_descriptive.csv", index=False)
 
-        # Tests
-        tests = journal_tests(name, df, np.random.default_rng(BOOT_SEED))
+        # Tests: one Holm family per experiment
+        rng = np.random.default_rng(BOOT_SEED)
+        tests = journal_tests(name, df, rng)
         tests.to_csv(OUT / f"{name}_tests.csv", index=False)
-        print(f"wrote {name} tables")
 
-    # E10 C7 vs C1 robots_lost table (separate file for clarity)
-    if "E10" in frames:
-        e10_c7c1 = journal_tests("E10", frames["E10"], np.random.default_rng(BOOT_SEED))
-        c7c1 = e10_c7c1[e10_c7c1.get("kind", pd.Series()) == "C7_vs_C1"]
-        if not c7c1.empty:
-            c7c1.to_csv(OUT / "e10_c7_vs_c1.csv", index=False)
-            print("wrote e10_c7_vs_c1.csv")
+        n_tests = len(tests)
+        expected = J_FAMILY_SIZES.get(name)
+        status = "" if expected is None else (
+            f" (expected {expected}{'  OK' if n_tests == expected else '  MISMATCH'})")
+        print(f"wrote {name}: {n_tests} tests{status}")
 
     return 0
 
