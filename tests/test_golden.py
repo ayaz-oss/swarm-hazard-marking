@@ -16,6 +16,12 @@ from make_golden import GOLDEN_CASES, golden_record  # noqa: E402
 
 GOLDEN = json.loads((ROOT / "tests" / "data" / "golden.json").read_text())
 
+# Golden values were recorded on Windows. They reproduce bit for bit on other Windows machines
+# (GitHub Actions windows-latest), but on Linux the final-state digests differ in the last
+# floating-point bits (spec 2026-10-22 week-7 addendum, section 5), so they are Windows-only.
+pytestmark = pytest.mark.skipif(sys.platform != "win32",
+                                reason="golden values are bit-exact on Windows only (week-7 spec section 5)")
+
 
 def same(a, b) -> bool:
     if isinstance(a, float) and isinstance(b, float) and math.isnan(a) and math.isnan(b):
