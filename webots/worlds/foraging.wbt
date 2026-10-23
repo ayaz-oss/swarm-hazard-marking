@@ -1,23 +1,27 @@
 #VRML_SIM R2025a utf8
 # Foraging arena for swarm-hazard Webots replication (spec 2026-10-23).
-# Arena: 10 x 10 m, 20 e-puck robots (robot0..robot19), one supervisor.
+# Arena: 10 x 10 m, 20 Forager robots (robot0..robot19), one supervisor.
 # Nest, patches and hazard are virtual (owned by the supervisor); coloured
 # floor discs below are visual only (no collision geometry).
 #
 # Time-step design: basicTimeStep = 20 ms; all controllers call step(100)
 # so the behavioural control step is 100 ms = 0.1 s (= dt in the model).
 # The supervisor passes each robot its desired heading every 100 ms.
+#
+# PROTO design: Forager is a local minimal differential-drive robot.
+#   No internet EXTERNPROTO needed.  Body radius 0.037 m, height 0.048 m.
+#   Two HingeJoint wheels, 8 IR distance sensors, Compass.
+#   Matches the E-puck physical dimensions and motor names used by the
+#   forager controller.
 
-EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackground.proto"
-EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
-EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/floors/protos/RectangleArena.proto"
-EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/robots/gctronic/e-puck/protos/E-puck.proto"
+EXTERNPROTO "../protos/Forager.proto"
 
 WorldInfo {
   info [
     "Swarm-hazard Webots replication (physics + collisions)."
-    "10 x 10 m arena, 20 e-pucks, supervisor controller."
+    "10 x 10 m arena, 20 Forager robots, supervisor controller."
     "basicTimeStep 20 ms; control step 100 ms (= model dt 0.1 s)."
+    "Local Forager PROTO: no internet downloads required."
   ]
   title "Swarm-hazard foraging arena"
   basicTimeStep 20
@@ -25,31 +29,92 @@ WorldInfo {
 }
 Viewpoint {
   orientation 0 1 0 0
-  position 0 12 0
+  position 0 15 0
   near 0.05
   follow ""
 }
-TexturedBackground {
-  texture "noon_park_empty"
+# ---- Background light (inline, no EXTERNPROTO needed) ----
+Background {
+  skyColor [
+    0.4 0.7 1.0
+  ]
 }
-TexturedBackgroundLight {
-  texture "noon_park_empty"
+DirectionalLight {
+  direction 0 -1 0
+  intensity 0.8
+  castShadows FALSE
 }
-# 10 x 10 m arena (walls + floor) centred at Webots origin.
-# wallHeight 0.05 m is enough to stop e-pucks (diameter 0.074 m).
-RectangleArena {
-  floorSize 10 10
-  floorTileSize 1 1
-  wallHeight 0.05
-  wallThickness 0.02
-  floorAppearance PBRAppearance {
-    baseColorMap ImageTexture {
-      url ["https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/appearances/protos/textures/parquet_floor/parquet_floor_base_color.jpg"]
+
+# ---- Floor (10x10 m, solid) ----
+Solid {
+  name "floor"
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.85 0.82 0.72
+        roughness 1.0
+        metalness 0.0
+      }
+      geometry Plane {
+        size 10 10
+      }
     }
-    roughness 1
-    metalness 0
+  ]
+  boundingObject Plane {
+    size 10 10
   }
 }
+
+# ---- Walls (four thin boxes, 10 m long, 0.05 m high, 0.02 m thick) ----
+# North wall (x = +5)
+Solid {
+  name "wall_north"
+  translation 5.01 0.025 0
+  children [
+    Shape {
+      appearance PBRAppearance { baseColor 0.6 0.6 0.6 roughness 1.0 metalness 0.0 }
+      geometry Box { size 0.02 0.05 10 }
+    }
+  ]
+  boundingObject Box { size 0.02 0.05 10 }
+}
+# South wall (x = -5)
+Solid {
+  name "wall_south"
+  translation -5.01 0.025 0
+  children [
+    Shape {
+      appearance PBRAppearance { baseColor 0.6 0.6 0.6 roughness 1.0 metalness 0.0 }
+      geometry Box { size 0.02 0.05 10 }
+    }
+  ]
+  boundingObject Box { size 0.02 0.05 10 }
+}
+# East wall (z = +5)
+Solid {
+  name "wall_east"
+  translation 0 0.025 5.01
+  children [
+    Shape {
+      appearance PBRAppearance { baseColor 0.6 0.6 0.6 roughness 1.0 metalness 0.0 }
+      geometry Box { size 10 0.05 0.02 }
+    }
+  ]
+  boundingObject Box { size 10 0.05 0.02 }
+}
+# West wall (z = -5)
+Solid {
+  name "wall_west"
+  translation 0 0.025 -5.01
+  children [
+    Shape {
+      appearance PBRAppearance { baseColor 0.6 0.6 0.6 roughness 1.0 metalness 0.0 }
+      geometry Box { size 10 0.05 0.02 }
+    }
+  ]
+  boundingObject Box { size 10 0.05 0.02 }
+}
+
 # ---- Visual-only floor markers (no collision, no physics) ----
 # Nest: green disc, centre (0, 0) in Webots = (5, 5) in sim coords, radius 0.75 m
 Transform {
@@ -166,7 +231,7 @@ Transform {
   ]
 }
 # ---- Supervisor (no physical body) ----
-# controllerArgs: "CONTROLLER SEED" - replaced by run_webots.py per run.
+# controllerArgs: "CONTROLLER SEED OUT_CSV N_STEPS" - replaced by run_webots.py per run.
 # Default values below are for ad-hoc manual runs.
 DEF SUPERVISOR Robot {
   name "supervisor"
@@ -178,125 +243,125 @@ DEF SUPERVISOR Robot {
   supervisor TRUE
   synchronization TRUE
 }
-# ---- 20 E-puck robots, placed in a circle (r=0.3 m) around the nest ----
-# Positions in Webots (x, z); y=0 (floor). Arena origin = sim (5,5).
-# robot{i}: DEF ROBOT{i}
-DEF ROBOT0 E-puck {
-  translation 0.3 0 0.0
+# ---- 20 Forager robots, placed in a circle (r=0.4 m) around the nest ----
+# Positions in Webots (x, y=0.024, z); Arena origin = sim (5,5).
+# y=0.024 m = body half-height, so the floor contact is at y=0.
+DEF ROBOT0 Forager {
+  translation 0.4000 0.024 0.0000
   name "robot0"
   controller "forager"
   synchronization TRUE
 }
-DEF ROBOT1 E-puck {
-  translation 0.2853 0 0.0927
+DEF ROBOT1 Forager {
+  translation 0.3804 0.024 0.1236
   name "robot1"
   controller "forager"
   synchronization TRUE
 }
-DEF ROBOT2 E-puck {
-  translation 0.2427 0 0.1763
+DEF ROBOT2 Forager {
+  translation 0.3236 0.024 0.2351
   name "robot2"
   controller "forager"
   synchronization TRUE
 }
-DEF ROBOT3 E-puck {
-  translation 0.1763 0 0.2427
+DEF ROBOT3 Forager {
+  translation 0.2351 0.024 0.3236
   name "robot3"
   controller "forager"
   synchronization TRUE
 }
-DEF ROBOT4 E-puck {
-  translation 0.0927 0 0.2853
+DEF ROBOT4 Forager {
+  translation 0.1236 0.024 0.3804
   name "robot4"
   controller "forager"
   synchronization TRUE
 }
-DEF ROBOT5 E-puck {
-  translation 0.0 0 0.3
+DEF ROBOT5 Forager {
+  translation 0.0000 0.024 0.4000
   name "robot5"
   controller "forager"
   synchronization TRUE
 }
-DEF ROBOT6 E-puck {
-  translation -0.0927 0 0.2853
+DEF ROBOT6 Forager {
+  translation -0.1236 0.024 0.3804
   name "robot6"
   controller "forager"
   synchronization TRUE
 }
-DEF ROBOT7 E-puck {
-  translation -0.1763 0 0.2427
+DEF ROBOT7 Forager {
+  translation -0.2351 0.024 0.3236
   name "robot7"
   controller "forager"
   synchronization TRUE
 }
-DEF ROBOT8 E-puck {
-  translation -0.2427 0 0.1763
+DEF ROBOT8 Forager {
+  translation -0.3236 0.024 0.2351
   name "robot8"
   controller "forager"
   synchronization TRUE
 }
-DEF ROBOT9 E-puck {
-  translation -0.2853 0 0.0927
+DEF ROBOT9 Forager {
+  translation -0.3804 0.024 0.1236
   name "robot9"
   controller "forager"
   synchronization TRUE
 }
-DEF ROBOT10 E-puck {
-  translation -0.3 0 0.0
+DEF ROBOT10 Forager {
+  translation -0.4000 0.024 0.0000
   name "robot10"
   controller "forager"
   synchronization TRUE
 }
-DEF ROBOT11 E-puck {
-  translation -0.2853 0 -0.0927
+DEF ROBOT11 Forager {
+  translation -0.3804 0.024 -0.1236
   name "robot11"
   controller "forager"
   synchronization TRUE
 }
-DEF ROBOT12 E-puck {
-  translation -0.2427 0 -0.1763
+DEF ROBOT12 Forager {
+  translation -0.3236 0.024 -0.2351
   name "robot12"
   controller "forager"
   synchronization TRUE
 }
-DEF ROBOT13 E-puck {
-  translation -0.1763 0 -0.2427
+DEF ROBOT13 Forager {
+  translation -0.2351 0.024 -0.3236
   name "robot13"
   controller "forager"
   synchronization TRUE
 }
-DEF ROBOT14 E-puck {
-  translation -0.0927 0 -0.2853
+DEF ROBOT14 Forager {
+  translation -0.1236 0.024 -0.3804
   name "robot14"
   controller "forager"
   synchronization TRUE
 }
-DEF ROBOT15 E-puck {
-  translation 0.0 0 -0.3
+DEF ROBOT15 Forager {
+  translation -0.0000 0.024 -0.4000
   name "robot15"
   controller "forager"
   synchronization TRUE
 }
-DEF ROBOT16 E-puck {
-  translation 0.0927 0 -0.2853
+DEF ROBOT16 Forager {
+  translation 0.1236 0.024 -0.3804
   name "robot16"
   controller "forager"
   synchronization TRUE
 }
-DEF ROBOT17 E-puck {
-  translation 0.1763 0 -0.2427
+DEF ROBOT17 Forager {
+  translation 0.2351 0.024 -0.3236
   name "robot17"
   controller "forager"
   synchronization TRUE
 }
-DEF ROBOT18 E-puck {
-  translation 0.2427 0 -0.1763
+DEF ROBOT18 Forager {
+  translation 0.3236 0.024 -0.2351
   name "robot18"
   controller "forager"
   synchronization TRUE
 }
-DEF ROBOT19 E-puck {
-  translation 0.2853 0 -0.0927
+DEF ROBOT19 Forager {
+  translation 0.3804 0.024 -0.1236
   name "robot19"
   controller "forager"
   synchronization TRUE
