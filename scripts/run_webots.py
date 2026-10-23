@@ -63,7 +63,8 @@ def _read_world_template() -> str:
 
 
 def _make_run_world(controller: str, seed: int, n_steps: int,
-                    out_csv: str, tmp_dir: Path) -> Path:  # noqa: ARG001
+                    out_csv: str, tmp_dir: Path,  # noqa: ARG001
+                    lethality_override: float | None = None) -> Path:
     """Write a per-run WBT file with supervisor controllerArgs set.
 
     IMPORTANT: the temp WBT is written into the SAME ``webots/worlds/``
@@ -80,12 +81,14 @@ def _make_run_world(controller: str, seed: int, n_steps: int,
 
     # Replace the default controllerArgs block for the supervisor.
     # The pattern matches the block inside the SUPERVISOR Robot node.
+    lethality_line = f'    "{lethality_override}"\n' if lethality_override is not None else ""
     new_args = (
         f'  controllerArgs [\n'
         f'    "{controller}"\n'
         f'    "{seed}"\n'
         f'    "{out_csv.replace(chr(92), "/")}"\n'
         f'    "{n_steps}"\n'
+        f'{lethality_line}'
         f'  ]'
     )
     # Replace the controllerArgs block (the default has "C2" and "0").
@@ -102,9 +105,11 @@ def _make_run_world(controller: str, seed: int, n_steps: int,
 
 
 def _run_one(controller: str, seed: int, n_steps: int,
-             out_csv: str, tmp_dir: Path, timeout: int = 600) -> dict:
+             out_csv: str, tmp_dir: Path, timeout: int = 600,
+             lethality_override: float | None = None) -> dict:
     """Launch one Webots run and return timing info."""
-    wbt = _make_run_world(controller, seed, n_steps, out_csv, tmp_dir)
+    wbt = _make_run_world(controller, seed, n_steps, out_csv, tmp_dir,
+                          lethality_override=lethality_override)
     cmd = [
         str(WEBOTS_EXE),
         "--batch",
@@ -166,6 +171,8 @@ def parse_args() -> argparse.Namespace:
                    help="One seed (0), 2000 steps, controllers C0 C2")
     p.add_argument("--calib", action="store_true",
                    help="C0, no hazard, seeds 0-4, 3000 steps (calibration run)")
+    p.add_argument("--no-hazard", dest="no_hazard", action="store_true",
+                   help="Set lethality=0 (pass argv[5]=0.0 to supervisor)")
     p.add_argument("--timeout", type=int, default=600,
                    help="Per-run timeout in seconds (default: 600)")
     p.add_argument("--verbose", action="store_true")
@@ -220,6 +227,11 @@ def main() -> None:
 
     parallel = args.parallel or webots_spec.get("n_parallel", 2)
 
+    # Lethality override (--no-hazard or --calib always sets 0.0)
+    lethality_override: float | None = None
+    if getattr(args, "no_hazard", False) or args.calib:
+        lethality_override = 0.0
+
     # Build job list
     jobs = [
         {"controller": ctrl, "seed": seed}
@@ -249,7 +261,8 @@ def main() -> None:
             futures = {
                 pool.submit(
                     _run_one,
-                    j["controller"], j["seed"], n_steps, out_csv, tmp_dir, args.timeout
+                    j["controller"], j["seed"], n_steps, out_csv, tmp_dir, args.timeout,
+                    lethality_override,
                 ): j
                 for j in jobs
             }

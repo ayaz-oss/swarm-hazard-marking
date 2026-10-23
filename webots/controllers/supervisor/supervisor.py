@@ -133,6 +133,8 @@ def main() -> None:
     seed = int(argv[2]) if len(argv) > 2 else 0
     out_path = argv[3] if len(argv) > 3 else None
     n_steps_override = int(argv[4]) if len(argv) > 4 else None
+    # argv[5]: optional lethality override (float); "0" → no hazard deaths
+    lethality_override = float(argv[5]) if len(argv) > 5 else None
 
     if controller_name not in VALID_CONTROLLERS:
         raise ValueError(f"Controller {controller_name!r} not in {VALID_CONTROLLERS}")
@@ -148,6 +150,11 @@ def main() -> None:
     cfg = load_config(cfg_path, **tuned)
 
     n_steps = n_steps_override if n_steps_override is not None else cfg.n_steps
+
+    # Apply optional lethality override (e.g. 0.0 for no-hazard calibration)
+    if lethality_override is not None:
+        from dataclasses import replace as _dc_replace
+        cfg = _dc_replace(cfg, lethality=lethality_override)
 
     # --- default output path --------------------------------------------------
     if out_path is None:
