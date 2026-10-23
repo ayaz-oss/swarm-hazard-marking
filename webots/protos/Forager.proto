@@ -243,9 +243,14 @@ PROTO Forager [
 
     # ── bounding object ──────────────────────────────────────────────────
     # Main cylinder collision shape; wheels have their own.
+    # Height 0.040 (not 0.048) so the bottom sits at y=0.004, 4 mm above
+    # the floor.  With height=0.048 the bottom was at y=0.000 (floor level),
+    # creating a degenerate simultaneous contact with both wheel bottoms
+    # (also at y=0.000) that sent the physics solver unstable and launched
+    # robots with z<0 at >12 m/s on the first simulation step.
     boundingObject Cylinder {
       radius 0.037
-      height 0.048
+      height 0.040
     }
 
     # ── physics ──────────────────────────────────────────────────────────
