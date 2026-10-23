@@ -64,8 +64,14 @@ MAX_WHEEL_SPEED = MAX_LINEAR / WHEEL_RADIUS  # ≈ 4.878 rad/s
 # At error = π/2 (90°): ω = Kp * π/2 ≈ 5 * 1.57 ≈ 7.85 → clamped
 STEERING_KP = 5.0
 
-# IR obstacle avoidance
-IR_THRESHOLD = 80.0          # sensor value above which avoidance kicks in
+# IR obstacle avoidance.
+# IR_THRESHOLD: sensors read ≈ 4095*(0.2-d)/0.2 at distance d (m).
+# Distance where value = threshold:  d = 0.2*(1 - threshold/4095).
+# threshold=80  → triggers at d=0.196 m (≈5 body radii – too sensitive).
+# threshold=1500 → triggers at d=0.127 m (≈1.7 body radii – avoid contact).
+# threshold=2500 → triggers at d=0.078 m (≈1.1 body radii – near-contact).
+# We use 1500 so robots avoid but are not paralysed in the initial cluster.
+IR_THRESHOLD = 1500.0        # sensor value above which avoidance kicks in
 IR_MAX = 4096.0
 
 # Approximate angles (deg) of the 8 IR sensors in robot-local frame
@@ -136,13 +142,15 @@ def ir_avoidance(
         # If the obstacle is in the right semicircle (0°–180°): turn left.
         # If in the left semicircle (180°–360°): turn right.
         if 0.0 <= angle_deg < 180.0:
-            # Right side: reduce right wheel, boost left
-            delta_right -= strength * MAX_WHEEL_SPEED * 2.0
-            delta_left += strength * MAX_WHEEL_SPEED * 0.5
+            # Right side: reduce right wheel, boost left (turn left/away)
+            # Capped at MAX_WHEEL_SPEED so avoidance cannot completely reverse
+            # the heading-control base speed in the opposite direction.
+            delta_right -= strength * MAX_WHEEL_SPEED * 1.0
+            delta_left += strength * MAX_WHEEL_SPEED * 0.3
         else:
-            # Left side: reduce left wheel, boost right
-            delta_left -= strength * MAX_WHEEL_SPEED * 2.0
-            delta_right += strength * MAX_WHEEL_SPEED * 0.5
+            # Left side: reduce left wheel, boost right (turn right/away)
+            delta_left -= strength * MAX_WHEEL_SPEED * 1.0
+            delta_right += strength * MAX_WHEEL_SPEED * 0.3
     return delta_left, delta_right
 
 

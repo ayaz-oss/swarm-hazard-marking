@@ -1,4 +1,4 @@
-#VRML_SIM R2025a utf8
+﻿#VRML_SIM R2025a utf8
 # Foraging arena for swarm-hazard Webots replication (spec 2026-10-23).
 # Arena: 10 x 10 m, 20 Forager robots (robot0..robot19), one supervisor.
 # Nest, patches and hazard are virtual (owned by the supervisor); coloured
@@ -243,125 +243,125 @@ DEF SUPERVISOR Robot {
   supervisor TRUE
   synchronization TRUE
 }
-# ---- 20 Forager robots, placed in a circle (r=0.4 m) around the nest ----
+# ---- 20 Forager robots, placed in a circle (r=2.0 m) around the nest ----
 # Positions in Webots (x, y=0.024, z); Arena origin = sim (5,5).
 # y=0.024 m = body half-height, so the floor contact is at y=0.
 DEF ROBOT0 Forager {
-  translation 0.4000 0.024 0.0000
+  translation 2.0000 0.024 0.0000
   name "robot0"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT1 Forager {
-  translation 0.3804 0.024 0.1236
+  translation 1.9021 0.024 0.6180
   name "robot1"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT2 Forager {
-  translation 0.3236 0.024 0.2351
+  translation 1.6180 0.024 1.1756
   name "robot2"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT3 Forager {
-  translation 0.2351 0.024 0.3236
+  translation 1.1756 0.024 1.6180
   name "robot3"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT4 Forager {
-  translation 0.1236 0.024 0.3804
+  translation 0.6180 0.024 1.9021
   name "robot4"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT5 Forager {
-  translation 0.0000 0.024 0.4000
+  translation 0.0000 0.024 2.0000
   name "robot5"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT6 Forager {
-  translation -0.1236 0.024 0.3804
+  translation -0.6180 0.024 1.9021
   name "robot6"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT7 Forager {
-  translation -0.2351 0.024 0.3236
+  translation -1.1756 0.024 1.6180
   name "robot7"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT8 Forager {
-  translation -0.3236 0.024 0.2351
+  translation -1.6180 0.024 1.1756
   name "robot8"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT9 Forager {
-  translation -0.3804 0.024 0.1236
+  translation -1.9021 0.024 0.6180
   name "robot9"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT10 Forager {
-  translation -0.4000 0.024 0.0000
+  translation -2.0000 0.024 0.0000
   name "robot10"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT11 Forager {
-  translation -0.3804 0.024 -0.1236
+  translation -1.9021 0.024 -0.6180
   name "robot11"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT12 Forager {
-  translation -0.3236 0.024 -0.2351
+  translation -1.6180 0.024 -1.1756
   name "robot12"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT13 Forager {
-  translation -0.2351 0.024 -0.3236
+  translation -1.1756 0.024 -1.6180
   name "robot13"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT14 Forager {
-  translation -0.1236 0.024 -0.3804
+  translation -0.6180 0.024 -1.9021
   name "robot14"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT15 Forager {
-  translation -0.0000 0.024 -0.4000
+  translation -0.0000 0.024 -2.0000
   name "robot15"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT16 Forager {
-  translation 0.1236 0.024 -0.3804
+  translation 0.6180 0.024 -1.9021
   name "robot16"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT17 Forager {
-  translation 0.2351 0.024 -0.3236
+  translation 1.1756 0.024 -1.6180
   name "robot17"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT18 Forager {
-  translation 0.3236 0.024 -0.2351
+  translation 1.6180 0.024 -1.1756
   name "robot18"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT19 Forager {
-  translation 0.3804 0.024 -0.1236
+  translation 1.9021 0.024 -0.6180
   name "robot19"
   controller "forager"
   synchronization TRUE
