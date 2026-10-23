@@ -1,0 +1,6 @@
+experiment,controller,cells,identical
+E7bF,C0,0 1 2 3 4 5,True
+E7bF,C1,0 5,True
+E8F,C0,1 2,True
+E8F,C1,1 2,True
+E8F,C4,1 2,True

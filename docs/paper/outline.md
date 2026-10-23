@@ -297,7 +297,7 @@ the pre-registration record. Tag the commits used (E1 fe78c66; E2 45b4ce5; E3–
 
 ## Open items before drafting
 
-1. Mentor read of this outline (Musolesi or Boem).
+1. External read of this outline.
 2. Literature: confirm related-work citations and search for 2026 work; ICCCR 2024
    stays out without a source.
 3. Make Fig. 1; combine Fig. 7 panels.

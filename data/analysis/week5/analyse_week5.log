@@ -1,0 +1,12 @@
+E6b: code 37bf380 (every golden case from fe78c66 reproduced bit-identically)
+E7b: code 37bf380 (every golden case from fe78c66 reproduced bit-identically)
+E8: code 37bf380 (every golden case from fe78c66 reproduced bit-identically)
+wrote E6b tables
+wrote E7b tables
+wrote E8 tables
+experiment controller       cells  identical
+       E7b         C0 0 1 2 3 4 5       True
+       E7b         C1         0 5       True
+        E8         C0         1 2       True
+        E8         C1         1 2       True
+        E8         C4         1 2       True

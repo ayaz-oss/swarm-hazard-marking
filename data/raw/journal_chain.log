@@ -1,0 +1,29 @@
+waiting for week 7: Thu Oct 22 09:51:48 GMTST 2026
+start Thu Oct 22 16:49:31 GMTST 2026
+.....................                                                    [100%]
+21 passed in 82.65s (0:01:22)
+tune_c7f: exit 0, 538 s (code 32e05a6)
+                                delivered  lost  runs
+p_alert_limit p_alert_duration                       
+3             1000                  142.0  2.50    20
+2             1000                  138.0  2.70    20
+3             300                   138.0  2.70    20
+1             3000                  137.5  3.95    20
+3             3000                  136.5  3.00    20
+1             1000                  135.5  3.75    20
+2             3000                  132.5  2.65    20
+1             300                   129.5  3.55    20
+2             300                   124.0  3.30    20
+
+chosen: {'alert_limit': 3.0, 'alert_duration': 1000.0} -> C:\Users\toaya\Downloads\Claude files\journal-wt\configs\tuned_params_c7.yaml
+# Tuned parameters for C7 (journal package). Written by scripts/select_params.py.
+# Last update: C7 from tune_c7f.csv, code 32e05a6.
+# Rule: highest median items delivered; ties -> lowest mean robots lost.
+alert_duration: 1000.0
+alert_limit: 3.0
+.....................                                                    [100%]
+21 passed in 97.03s (0:01:37)
+E10: exit 0, 2932 s (code 60c528d)
+E11: exit 0, 12012 s (code 60c528d)
+E12: exit 0, 3615 s (code 60c528d)
+done Thu Oct 22 22:10:58 GMTST 2026

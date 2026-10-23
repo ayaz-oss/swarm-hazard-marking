@@ -1,0 +1,51 @@
+start Thu Oct 22 08:16:36 GMTST 2026
+..................                                                       [100%]
+18 passed in 20.55s
+tune_c2f: exit 0, 544 s (code 7a1ffd6)
+                                        delivered  lost  runs
+p_repel_weight p_deposit_sigma p_decay                       
+4.0            0.3             0.0020       146.0  2.20    20
+0.5            0.3             0.0002       143.5  2.00    20
+2.0            0.3             0.0020       142.5  1.90    20
+1.0            0.3             0.0002       140.5  1.70    20
+2.0            0.3             0.0005       140.0  1.70    20
+4.0            0.3             0.0002       139.5  1.80    20
+2.0            0.5             0.0020       139.5  2.15    20
+0.5            0.3             0.0020       139.5  2.25    20
+1.0            0.3             0.0005       138.5  2.15    20
+4.0            0.2             0.0005       138.0  1.95    20
+
+chosen: {'repel_weight': 4.0, 'deposit_sigma': 0.3, 'decay': 0.002} -> C:\Users\toaya\Downloads\Claude files\Research Project\configs\tuned_params_fidelity.yaml
+..................                                                       [100%]
+18 passed in 21.26s
+tune_c3f: exit 0, 2102 s (code 933e867)
+          delivered  lost  runs
+p_risk_k                       
+0.50          136.5  2.15    20
+2.00          135.5  2.00    20
+1.00          135.0  1.95    20
+4.00          133.0  2.15    20
+0.25          127.5  1.90    20
+
+chosen: {'risk_k': 0.5} -> C:\Users\toaya\Downloads\Claude files\Research Project\configs\tuned_params_fidelity.yaml
+tuned file:
+# Tuned parameters for site-fidelity experiments (week-7 spec). Written by scripts/select_params.py.
+# Last update: C3 from tune_c3f.csv, code inf.
+# Rule: highest median items delivered; ties -> lowest mean robots lost.
+# Contains search_start: last_pickup for all fidelity experiments.
+decay: 0.002
+deposit_sigma: 0.3
+repel_weight: 4.0
+risk_k: 0.5
+search_start: last_pickup
+..................                                                       [100%]
+18 passed in 25.54s
+E1F: exit 0, 365 s (code f8de905)
+E2F: exit 0, 2290 s (code f8de905)
+E3F: exit 0, 2052 s (code f8de905)
+E4F: exit 0, 1282 s (code f8de905)
+E5F: exit 0, 2203 s (code f8de905)
+E6bF: exit 0, 8403 s (code f8de905)
+E7bF: exit 0, 8515 s (code f8de905)
+E8F: exit 0, 2785 s (code f8de905)
+done Thu Oct 22 16:46:55 GMTST 2026

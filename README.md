@@ -1,51 +1,95 @@
-# swarmhazard
+# Lost teammates as hazard sensors
 
-Simulation code for a study of whether a decentralised foraging robot swarm can
-treat teammates' failures as information about where hidden hazards are.
+Simulation code, pre-registration and data for a study of whether a decentralised foraging robot
+swarm, using only local sensing, can locate an invisible hazard from where its teammates fail. A
+robot that finds a teammate's wreck leaves a decaying "keep away" mark (like the "no entry"
+pheromone of Pharaoh ants), and the other robots steer away from strong marks.
 
-Design: `docs/superpowers/specs/2026-10-14-swarm-hazard-design.md`
+Author: Ayaz Nasyrov (Foundation Year, University College London).
+Paper (working draft): [`docs/paper/draft.pdf`](docs/paper/draft.pdf).
+
+## What is here
+
+| Path | Contents |
+|---|---|
+| `src/swarmhazard/` | The simulator: arena, robots, controllers C0–C7, repellent field, metrics, statistics |
+| `configs/` | Baseline configuration, tuned parameters, and one YAML file per experiment |
+| `scripts/` | Running experiments, tuning, analysis, figures, diagnostics, frozen batches |
+| `tests/` | Unit tests, plus bit-exact "golden" regression tests |
+| `docs/hypotheses.md` | The pre-registration: hypotheses, statistics and every later addition, each dated before its data existed |
+| `docs/superpowers/specs/` | Design spec and dated addenda |
+| `docs/learning/` | Plain-language notes on each stage of the study (01–08) |
+| `data/` | Snapshot of every result used in the paper: raw per-run CSVs, analysis tables, diagnostics, figures |
+
+## Controllers
+
+| ID | Behaviour |
+|---|---|
+| C0 | Ignores wrecks |
+| C1 | Avoids wrecks currently in view |
+| C2 | C1 plus marking a shared, decaying repellent field (main method) |
+| C3 | C2 with the push weakened when items are in view |
+| C4 | Oracle: cannot enter the hazard (reference only) |
+| C5 | Per-robot maps, max-merged with neighbours |
+| C6 | Per-robot sighting records, shared with neighbours |
+| C7 | Risk-limit alerts broadcast to neighbours (inspired by Hunt, Cullen and Hauert 2021) |
 
 ## Install
 
+Python 3.11.
+
     python -m venv .venv
-    .venv/Scripts/python -m pip install -e ".[dev]"     # Windows (Git Bash)
+    .venv/Scripts/python -m pip install -e ".[dev]"     # Windows
     # .venv/bin/python -m pip install -e ".[dev]"       # macOS / Linux
 
 ## Test
 
     .venv/Scripts/python -m pytest
 
-## Reproduce the week-1 gate
+The golden tests compare full simulation runs bit for bit with recorded values. They were recorded
+on Windows; on another platform results are expected to agree statistically, not necessarily
+bit for bit.
 
-    .venv/Scripts/python scripts/run_experiment.py configs/experiments/gate.yaml
-    .venv/Scripts/python scripts/check_gate.py results/gate.csv
+## Reproduce the results
 
-## Tune parameters (week 2)
+Every experiment is one YAML file in `configs/experiments/`; each run's random streams depend only
+on (experiment, cell, seed), so any run can be repeated exactly on the same platform.
 
-    .venv/Scripts/python scripts/run_experiment.py configs/experiments/tune_c2.yaml
-    .venv/Scripts/python scripts/select_params.py results/tune_c2.csv C2 repel_weight deposit_sigma decay
-    git add configs/tuned_params.yaml && git commit -m "Record tuned C2 parameters"
-    .venv/Scripts/python scripts/run_experiment.py configs/experiments/tune_c3.yaml
-    .venv/Scripts/python scripts/select_params.py results/tune_c3.csv C3 risk_k
-    git add configs/tuned_params.yaml && git commit -m "Record tuned C3 risk_k"
+    # one experiment
+    .venv/Scripts/python scripts/run_experiment.py configs/experiments/E1F.yaml --workers 4
 
-The analysis plan and hypotheses are in `docs/hypotheses.md`.
+    # several, from a frozen copy of the current commit (as used for the paper)
+    .venv/Scripts/python scripts/run_batch.py E1F E2F E3F --workers 4
 
-## Run experiments from a frozen copy (week 4)
+Analysis and figures (results are written to `results/`):
 
-    .venv/Scripts/python scripts/run_batch.py E6 E7
+    .venv/Scripts/python scripts/analyse.py          # nest-restart model, H1–H4, E1–E7
+    .venv/Scripts/python scripts/analyse_week5.py    # E6b, E7b, E8
+    .venv/Scripts/python scripts/analyse_week6.py    # E9
+    .venv/Scripts/python scripts/analyse_week7.py    # site-fidelity model, H1F–H4F, E1F–E8F
+    .venv/Scripts/python scripts/analyse_journal.py  # E10, E10b, E11, E12
+    .venv/Scripts/python scripts/make_figures.py
 
-Checks out the current commit into `.batch/<sha>/`, runs the golden test there, then runs
-each experiment from that copy, so later edits or commits cannot change a running batch.
+To analyse the published data instead of re-running, copy `data/raw/*.csv` into `results/`.
 
-Week 5 (after the user approves the pre-registration): `python scripts/run_batch.py E6b E7b E8 --workers 4`,
-then `python scripts/analyse_week5.py` and `python scripts/make_figures.py`.
-Mechanism checks (small, descriptive): `python scripts/mechanism_checks.py --reference-dir <dir with E1.csv and E4.csv>`.
+The commit each experiment ran from is recorded in every result row (`git_commit`) and listed in
+the paper's "Code and data availability" section.
+
+Tuning (parameters are committed before the main experiments that use them):
+
+    .venv/Scripts/python scripts/run_experiment.py configs/experiments/tune_c2f.yaml
+    .venv/Scripts/python scripts/select_params.py results/tune_c2f.csv C2 repel_weight deposit_sigma decay
 
 ## Watch a run
 
     .venv/Scripts/python scripts/animate.py --controller C2 --seed 0
 
+## Use of AI tools
+
+The code was written with the help of an AI coding assistant (Claude, Anthropic) under the
+author's direction; see the paper.
+
 ## Licence
 
-MIT
+Code: MIT (see `LICENSE`). Text, figures and data (`docs/`, `data/`): CC BY 4.0 (see
+`LICENSE-CC-BY-4.0.md`). Please cite using `CITATION.cff`.
