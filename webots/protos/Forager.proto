@@ -1,3 +1,4 @@
+#VRML_SIM R2025a utf8
 # Forager.proto — minimal differential-drive robot for the swarm-hazard
 # Webots physics replication.  No external downloads; all geometry is defined
 # inline using Webots built-in primitives only.

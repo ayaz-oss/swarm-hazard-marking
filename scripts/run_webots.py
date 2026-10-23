@@ -63,9 +63,21 @@ def _read_world_template() -> str:
 
 
 def _make_run_world(controller: str, seed: int, n_steps: int,
-                    out_csv: str, tmp_dir: Path) -> Path:
-    """Write a per-run WBT file with supervisor controllerArgs set."""
+                    out_csv: str, tmp_dir: Path) -> Path:  # noqa: ARG001
+    """Write a per-run WBT file with supervisor controllerArgs set.
+
+    IMPORTANT: the temp WBT is written into the SAME ``webots/worlds/``
+    directory as the template.  Webots resolves both EXTERNPROTO paths and
+    controller directories relative to the WBT file, so placing it elsewhere
+    breaks controller lookup.  ``tmp_dir`` is kept as a parameter for
+    compatibility but is ignored.
+
+    Temp files are named ``foraging_{controller}_{seed}.wbt``.  They are
+    cleaned up after each run.  Add ``webots/worlds/foraging_*.wbt`` to
+    ``.gitignore`` to keep them out of version control.
+    """
     text = _read_world_template()
+
     # Replace the default controllerArgs block for the supervisor.
     # The pattern matches the block inside the SUPERVISOR Robot node.
     new_args = (
@@ -82,7 +94,9 @@ def _make_run_world(controller: str, seed: int, n_steps: int,
         new_args.strip(),
         text,
     )
-    tmp_wbt = tmp_dir / f"foraging_{controller}_{seed}.wbt"
+    # Write temp WBT alongside the template so relative paths remain valid.
+    worlds_dir = WORLD_TEMPLATE.parent
+    tmp_wbt = worlds_dir / f"foraging_{controller}_{seed}.wbt"
     tmp_wbt.write_text(text, encoding="utf-8")
     return tmp_wbt
 

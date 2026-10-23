@@ -6,3 +6,5 @@ __pycache__/
 .superpowers/
 *.egg-info/
 .batch/
+webots/worlds/foraging_*.wbt
+webots/worlds/.*.wbproj
