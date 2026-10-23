@@ -1,0 +1,303 @@
+#VRML_SIM R2025a utf8
+# Foraging arena for swarm-hazard Webots replication (spec 2026-10-23).
+# Arena: 10 x 10 m, 20 e-puck robots (robot0..robot19), one supervisor.
+# Nest, patches and hazard are virtual (owned by the supervisor); coloured
+# floor discs below are visual only (no collision geometry).
+#
+# Time-step design: basicTimeStep = 20 ms; all controllers call step(100)
+# so the behavioural control step is 100 ms = 0.1 s (= dt in the model).
+# The supervisor passes each robot its desired heading every 100 ms.
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/floors/protos/RectangleArena.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/robots/gctronic/e-puck/protos/E-puck.proto"
+
+WorldInfo {
+  info [
+    "Swarm-hazard Webots replication (physics + collisions)."
+    "10 x 10 m arena, 20 e-pucks, supervisor controller."
+    "basicTimeStep 20 ms; control step 100 ms (= model dt 0.1 s)."
+  ]
+  title "Swarm-hazard foraging arena"
+  basicTimeStep 20
+  coordinateSystem "NUE"
+}
+Viewpoint {
+  orientation 0 1 0 0
+  position 0 12 0
+  near 0.05
+  follow ""
+}
+TexturedBackground {
+  texture "noon_park_empty"
+}
+TexturedBackgroundLight {
+  texture "noon_park_empty"
+}
+# 10 x 10 m arena (walls + floor) centred at Webots origin.
+# wallHeight 0.05 m is enough to stop e-pucks (diameter 0.074 m).
+RectangleArena {
+  floorSize 10 10
+  floorTileSize 1 1
+  wallHeight 0.05
+  wallThickness 0.02
+  floorAppearance PBRAppearance {
+    baseColorMap ImageTexture {
+      url ["https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/appearances/protos/textures/parquet_floor/parquet_floor_base_color.jpg"]
+    }
+    roughness 1
+    metalness 0
+  }
+}
+# ---- Visual-only floor markers (no collision, no physics) ----
+# Nest: green disc, centre (0, 0) in Webots = (5, 5) in sim coords, radius 0.75 m
+Transform {
+  translation 0 0.001 0
+  rotation 1 0 0 -1.5707963267948966
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.2 0.8 0.2
+          transparency 0.4
+        }
+      }
+      geometry Cylinder {
+        height 0.001
+        radius 0.75
+      }
+    }
+  ]
+}
+# Patch NW: (-2.5, 0.001, -2.5) = sim (2.5, 2.5)
+Transform {
+  translation -2.5 0.001 -2.5
+  rotation 1 0 0 -1.5707963267948966
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.9 0.8 0.1
+          transparency 0.4
+        }
+      }
+      geometry Cylinder {
+        height 0.001
+        radius 0.75
+      }
+    }
+  ]
+}
+# Patch NE: (2.5, 0.001, -2.5) = sim (7.5, 2.5)
+Transform {
+  translation 2.5 0.001 -2.5
+  rotation 1 0 0 -1.5707963267948966
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.9 0.8 0.1
+          transparency 0.4
+        }
+      }
+      geometry Cylinder {
+        height 0.001
+        radius 0.75
+      }
+    }
+  ]
+}
+# Patch SW: (-2.5, 0.001, 2.5) = sim (2.5, 7.5)
+Transform {
+  translation -2.5 0.001 2.5
+  rotation 1 0 0 -1.5707963267948966
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.9 0.8 0.1
+          transparency 0.4
+        }
+      }
+      geometry Cylinder {
+        height 0.001
+        radius 0.75
+      }
+    }
+  ]
+}
+# Patch SE: (2.5, 0.001, 2.5) = sim (7.5, 7.5)
+Transform {
+  translation 2.5 0.001 2.5
+  rotation 1 0 0 -1.5707963267948966
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.9 0.8 0.1
+          transparency 0.4
+        }
+      }
+      geometry Cylinder {
+        height 0.001
+        radius 0.75
+      }
+    }
+  ]
+}
+# Hazard: red disc at (3.81, 0.001, 1.19) = sim (8.81, 6.19), radius 1.0 m
+Transform {
+  translation 3.81 0.001 1.19
+  rotation 1 0 0 -1.5707963267948966
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.9 0.1 0.1
+          transparency 0.5
+        }
+      }
+      geometry Cylinder {
+        height 0.001
+        radius 1.0
+      }
+    }
+  ]
+}
+# ---- Supervisor (no physical body) ----
+# controllerArgs: "CONTROLLER SEED" - replaced by run_webots.py per run.
+# Default values below are for ad-hoc manual runs.
+DEF SUPERVISOR Robot {
+  name "supervisor"
+  controller "supervisor"
+  controllerArgs [
+    "C2"
+    "0"
+  ]
+  supervisor TRUE
+  synchronization TRUE
+}
+# ---- 20 E-puck robots, placed in a circle (r=0.3 m) around the nest ----
+# Positions in Webots (x, z); y=0 (floor). Arena origin = sim (5,5).
+# robot{i}: DEF ROBOT{i}
+DEF ROBOT0 E-puck {
+  translation 0.3 0 0.0
+  name "robot0"
+  controller "forager"
+  synchronization TRUE
+}
+DEF ROBOT1 E-puck {
+  translation 0.2853 0 0.0927
+  name "robot1"
+  controller "forager"
+  synchronization TRUE
+}
+DEF ROBOT2 E-puck {
+  translation 0.2427 0 0.1763
+  name "robot2"
+  controller "forager"
+  synchronization TRUE
+}
+DEF ROBOT3 E-puck {
+  translation 0.1763 0 0.2427
+  name "robot3"
+  controller "forager"
+  synchronization TRUE
+}
+DEF ROBOT4 E-puck {
+  translation 0.0927 0 0.2853
+  name "robot4"
+  controller "forager"
+  synchronization TRUE
+}
+DEF ROBOT5 E-puck {
+  translation 0.0 0 0.3
+  name "robot5"
+  controller "forager"
+  synchronization TRUE
+}
+DEF ROBOT6 E-puck {
+  translation -0.0927 0 0.2853
+  name "robot6"
+  controller "forager"
+  synchronization TRUE
+}
+DEF ROBOT7 E-puck {
+  translation -0.1763 0 0.2427
+  name "robot7"
+  controller "forager"
+  synchronization TRUE
+}
+DEF ROBOT8 E-puck {
+  translation -0.2427 0 0.1763
+  name "robot8"
+  controller "forager"
+  synchronization TRUE
+}
+DEF ROBOT9 E-puck {
+  translation -0.2853 0 0.0927
+  name "robot9"
+  controller "forager"
+  synchronization TRUE
+}
+DEF ROBOT10 E-puck {
+  translation -0.3 0 0.0
+  name "robot10"
+  controller "forager"
+  synchronization TRUE
+}
+DEF ROBOT11 E-puck {
+  translation -0.2853 0 -0.0927
+  name "robot11"
+  controller "forager"
+  synchronization TRUE
+}
+DEF ROBOT12 E-puck {
+  translation -0.2427 0 -0.1763
+  name "robot12"
+  controller "forager"
+  synchronization TRUE
+}
+DEF ROBOT13 E-puck {
+  translation -0.1763 0 -0.2427
+  name "robot13"
+  controller "forager"
+  synchronization TRUE
+}
+DEF ROBOT14 E-puck {
+  translation -0.0927 0 -0.2853
+  name "robot14"
+  controller "forager"
+  synchronization TRUE
+}
+DEF ROBOT15 E-puck {
+  translation 0.0 0 -0.3
+  name "robot15"
+  controller "forager"
+  synchronization TRUE
+}
+DEF ROBOT16 E-puck {
+  translation 0.0927 0 -0.2853
+  name "robot16"
+  controller "forager"
+  synchronization TRUE
+}
+DEF ROBOT17 E-puck {
+  translation 0.1763 0 -0.2427
+  name "robot17"
+  controller "forager"
+  synchronization TRUE
+}
+DEF ROBOT18 E-puck {
+  translation 0.2427 0 -0.1763
+  name "robot18"
+  controller "forager"
+  synchronization TRUE
+}
+DEF ROBOT19 E-puck {
+  translation 0.2853 0 -0.0927
+  name "robot19"
+  controller "forager"
+  synchronization TRUE
+}
