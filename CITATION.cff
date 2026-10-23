@@ -6,6 +6,7 @@ authors:
     given-names: Ayaz
     affiliation: "Foundation Year, University College London"
 license: MIT
+doi: 10.5281/zenodo.23591454
 repository-code: "https://github.com/ayaz-oss/swarm-hazard-marking"
 date-released: 2026-10-23
 keywords:
