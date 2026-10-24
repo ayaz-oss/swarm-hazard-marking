@@ -4,13 +4,17 @@
 # Nest, patches and hazard are virtual (owned by the supervisor); coloured
 # floor discs below are visual only (no collision geometry).
 #
+# Coordinate system: ENU (East-North-Up, z=up, gravity along -z).
+#   x = East, y = North, z = Up.
+#   Floor at z = 0 (x-y plane).  Robot bodies centred at z = 0.024 m.
+#
 # Time-step design: basicTimeStep = 20 ms; all controllers call step(100)
 # so the behavioural control step is 100 ms = 0.1 s (= dt in the model).
 # The supervisor passes each robot its desired heading every 100 ms.
 #
 # PROTO design: Forager is a local minimal differential-drive robot.
-#   No internet EXTERNPROTO needed.  Body radius 0.037 m, height 0.048 m.
-#   Two HingeJoint wheels, 8 IR distance sensors, Compass.
+#   No internet EXTERNPROTO needed.  Body radius 0.037 m, height 0.040 m.
+#   Two HingeJoint wheels (axis y), 8 IR distance sensors, Compass.
 #   Matches the E-puck physical dimensions and motor names used by the
 #   forager controller.
 
@@ -22,32 +26,34 @@ WorldInfo {
     "10 x 10 m arena, 20 Forager robots, supervisor controller."
     "basicTimeStep 20 ms; control step 100 ms (= model dt 0.1 s)."
     "Local Forager PROTO: no internet downloads required."
+    "Coordinate system: ENU (z up, gravity -z)."
   ]
   title "Swarm-hazard foraging arena"
   basicTimeStep 20
-  coordinateSystem "NUE"
+  coordinateSystem "ENU"
 }
 Viewpoint {
   orientation 0 1 0 0
-  position 0 15 0
+  position 0 0 15
   near 0.05
   follow ""
 }
-# ---- Background light (inline, no EXTERNPROTO needed) ----
 Background {
   skyColor [
     0.4 0.7 1.0
   ]
 }
+# Light shines downward in ENU (direction = -z)
 DirectionalLight {
-  direction 0 -1 0
+  direction 0 0 -1
   intensity 0.8
   castShadows FALSE
 }
 
-# ---- Floor (10x10 m, solid) ----
+# ---- Floor (10x10 m, thin box, top face at z=0) ----
 Solid {
   name "floor"
+  translation 0 0 -0.0005
   children [
     Shape {
       appearance PBRAppearance {
@@ -55,71 +61,76 @@ Solid {
         roughness 1.0
         metalness 0.0
       }
-      geometry Plane {
-        size 10 10
+      geometry Box {
+        size 10 10 0.001
       }
     }
   ]
-  boundingObject Plane {
-    size 10 10
+  boundingObject Box {
+    size 10 10 0.001
   }
 }
 
-# ---- Walls (four thin boxes, 10 m long, 0.05 m high, 0.02 m thick) ----
-# North wall (x = +5)
+# ---- Walls (0.02 m thick, 0.05 m tall, centred at z=0.025) ----
+# North wall (y = +5.01), runs East-West (x-direction)
 Solid {
   name "wall_north"
-  translation 5.01 0.025 0
+  translation 0 5.01 0.025
   children [
     Shape {
       appearance PBRAppearance { baseColor 0.6 0.6 0.6 roughness 1.0 metalness 0.0 }
-      geometry Box { size 0.02 0.05 10 }
+      geometry Box { size 10 0.02 0.05 }
     }
   ]
-  boundingObject Box { size 0.02 0.05 10 }
+  boundingObject Box { size 10 0.02 0.05 }
 }
-# South wall (x = -5)
+# South wall (y = -5.01)
 Solid {
   name "wall_south"
-  translation -5.01 0.025 0
+  translation 0 -5.01 0.025
   children [
     Shape {
       appearance PBRAppearance { baseColor 0.6 0.6 0.6 roughness 1.0 metalness 0.0 }
-      geometry Box { size 0.02 0.05 10 }
+      geometry Box { size 10 0.02 0.05 }
     }
   ]
-  boundingObject Box { size 0.02 0.05 10 }
+  boundingObject Box { size 10 0.02 0.05 }
 }
-# East wall (z = +5)
+# East wall (x = +5.01), runs North-South (y-direction)
 Solid {
   name "wall_east"
-  translation 0 0.025 5.01
+  translation 5.01 0 0.025
   children [
     Shape {
       appearance PBRAppearance { baseColor 0.6 0.6 0.6 roughness 1.0 metalness 0.0 }
-      geometry Box { size 10 0.05 0.02 }
+      geometry Box { size 0.02 10 0.05 }
     }
   ]
-  boundingObject Box { size 10 0.05 0.02 }
+  boundingObject Box { size 0.02 10 0.05 }
 }
-# West wall (z = -5)
+# West wall (x = -5.01)
 Solid {
   name "wall_west"
-  translation 0 0.025 -5.01
+  translation -5.01 0 0.025
   children [
     Shape {
       appearance PBRAppearance { baseColor 0.6 0.6 0.6 roughness 1.0 metalness 0.0 }
-      geometry Box { size 10 0.05 0.02 }
+      geometry Box { size 0.02 10 0.05 }
     }
   ]
-  boundingObject Box { size 10 0.05 0.02 }
+  boundingObject Box { size 0.02 10 0.05 }
 }
 
 # ---- Visual-only floor markers (no collision, no physics) ----
-# Nest: green disc, centre (0, 0) in Webots = (5, 5) in sim coords, radius 0.75 m
+# In ENU, Cylinder axis = z (Up) by default — cylinders are upright.
+# No rotation needed; z=0.001 = just above floor.
+#
+# Coordinate mapping: webots_to_sim(wx,wy) = (wx+5, wy+5)
+#   wx = East (x), wy = North (y).
+#
+# Nest: sim(5,5) = Webots(0,0)
 Transform {
-  translation 0 0.001 0
-  rotation 1 0 0 -1.5707963267948966
+  translation 0 0 0.001
   children [
     Shape {
       appearance Appearance {
@@ -135,10 +146,9 @@ Transform {
     }
   ]
 }
-# Patch NW: (-2.5, 0.001, -2.5) = sim (2.5, 2.5)
+# Patch NW: sim(2.5,2.5) = Webots(-2.5,-2.5)
 Transform {
-  translation -2.5 0.001 -2.5
-  rotation 1 0 0 -1.5707963267948966
+  translation -2.5 -2.5 0.001
   children [
     Shape {
       appearance Appearance {
@@ -154,10 +164,9 @@ Transform {
     }
   ]
 }
-# Patch NE: (2.5, 0.001, -2.5) = sim (7.5, 2.5)
+# Patch NE: sim(7.5,2.5) = Webots(2.5,-2.5)
 Transform {
-  translation 2.5 0.001 -2.5
-  rotation 1 0 0 -1.5707963267948966
+  translation 2.5 -2.5 0.001
   children [
     Shape {
       appearance Appearance {
@@ -173,10 +182,9 @@ Transform {
     }
   ]
 }
-# Patch SW: (-2.5, 0.001, 2.5) = sim (2.5, 7.5)
+# Patch SW: sim(2.5,7.5) = Webots(-2.5,2.5)
 Transform {
-  translation -2.5 0.001 2.5
-  rotation 1 0 0 -1.5707963267948966
+  translation -2.5 2.5 0.001
   children [
     Shape {
       appearance Appearance {
@@ -192,10 +200,9 @@ Transform {
     }
   ]
 }
-# Patch SE: (2.5, 0.001, 2.5) = sim (7.5, 7.5)
+# Patch SE: sim(7.5,7.5) = Webots(2.5,2.5)
 Transform {
-  translation 2.5 0.001 2.5
-  rotation 1 0 0 -1.5707963267948966
+  translation 2.5 2.5 0.001
   children [
     Shape {
       appearance Appearance {
@@ -211,10 +218,9 @@ Transform {
     }
   ]
 }
-# Hazard: red disc at (3.81, 0.001, 1.19) = sim (8.81, 6.19), radius 1.0 m
+# Hazard: sim(8.81,6.19) = Webots(3.81,1.19)
 Transform {
-  translation 3.81 0.001 1.19
-  rotation 1 0 0 -1.5707963267948966
+  translation 3.81 1.19 0.001
   children [
     Shape {
       appearance Appearance {
@@ -244,126 +250,125 @@ DEF SUPERVISOR Robot {
   synchronization TRUE
 }
 # ---- 20 Forager robots, placed in a circle (r=2.0 m) around the nest ----
-# Positions in Webots (x, y=0.024, z); Arena origin = sim (5,5).
-# y=0.024 m = body centre height.  The boundingObject cylinder (h=0.040)
-# has its bottom at y=0.004 (4 mm above floor) to avoid degenerate
-# simultaneous contact with the wheel bottoms at y=0.000.
+# In ENU: translation = (x_East, y_North, 0.024).
+# Old NUE was (x_North, 0.024, z_East); new ENU = (z_East, x_North, 0.024).
+# Body centre at z=0.024; wheel bottom at z=0.000 (floor contact). ✓
 DEF ROBOT0 Forager {
-  translation 2.0000 0.024 0.0000
+  translation 0.0000 2.0000 0.024
   name "robot0"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT1 Forager {
-  translation 1.9021 0.024 0.6180
+  translation 0.6180 1.9021 0.024
   name "robot1"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT2 Forager {
-  translation 1.6180 0.024 1.1756
+  translation 1.1756 1.6180 0.024
   name "robot2"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT3 Forager {
-  translation 1.1756 0.024 1.6180
+  translation 1.6180 1.1756 0.024
   name "robot3"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT4 Forager {
-  translation 0.6180 0.024 1.9021
+  translation 1.9021 0.6180 0.024
   name "robot4"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT5 Forager {
-  translation 0.0000 0.024 2.0000
+  translation 2.0000 0.0000 0.024
   name "robot5"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT6 Forager {
-  translation -0.6180 0.024 1.9021
+  translation 1.9021 -0.6180 0.024
   name "robot6"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT7 Forager {
-  translation -1.1756 0.024 1.6180
+  translation 1.6180 -1.1756 0.024
   name "robot7"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT8 Forager {
-  translation -1.6180 0.024 1.1756
+  translation 1.1756 -1.6180 0.024
   name "robot8"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT9 Forager {
-  translation -1.9021 0.024 0.6180
+  translation 0.6180 -1.9021 0.024
   name "robot9"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT10 Forager {
-  translation -2.0000 0.024 0.0000
+  translation 0.0000 -2.0000 0.024
   name "robot10"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT11 Forager {
-  translation -1.9021 0.024 -0.6180
+  translation -0.6180 -1.9021 0.024
   name "robot11"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT12 Forager {
-  translation -1.6180 0.024 -1.1756
+  translation -1.1756 -1.6180 0.024
   name "robot12"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT13 Forager {
-  translation -1.1756 0.024 -1.6180
+  translation -1.6180 -1.1756 0.024
   name "robot13"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT14 Forager {
-  translation -0.6180 0.024 -1.9021
+  translation -1.9021 -0.6180 0.024
   name "robot14"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT15 Forager {
-  translation -0.0000 0.024 -2.0000
+  translation -2.0000 0.0000 0.024
   name "robot15"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT16 Forager {
-  translation 0.6180 0.024 -1.9021
+  translation -1.9021 0.6180 0.024
   name "robot16"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT17 Forager {
-  translation 1.1756 0.024 -1.6180
+  translation -1.6180 1.1756 0.024
   name "robot17"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT18 Forager {
-  translation 1.6180 0.024 -1.1756
+  translation -1.1756 1.6180 0.024
   name "robot18"
   controller "forager"
   synchronization TRUE
 }
 DEF ROBOT19 Forager {
-  translation 1.9021 0.024 -0.6180
+  translation -0.6180 1.9021 0.024
   name "robot19"
   controller "forager"
   synchronization TRUE

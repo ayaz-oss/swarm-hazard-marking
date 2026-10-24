@@ -6,9 +6,9 @@ Command-line args (controllerArgs in the WBT):
   argv[3] : output CSV path (default: auto, in results/)
   argv[4] : n_steps override (default: 10000)
 
-Coordinate conventions
+Coordinate conventions (ENU: x=East, y=North, z=Up)
   Sim coords    : x, y ∈ [0, 10] (matches swarmhazard Config)
-  Webots coords : x_w = x_s - 5, z_w = y_s - 5 (y_w = up, near 0 for floor)
+  Webots coords : x_w = x_s - 5, y_w = y_s - 5 (z_w = up, near 0.024 for robot centre)
 
 Time-step design
   basicTimeStep = 20 ms (set in the WBT)
@@ -80,13 +80,13 @@ VALID_CONTROLLERS = ("C0", "C1", "C2", "C4")
 
 # ── coordinate helpers ───────────────────────────────────────────────────────
 
-def webots_to_sim(wx: float, wz: float) -> tuple[float, float]:
-    """Webots (x_w, z_w) → sim (x_s, y_s)."""
-    return wx + ARENA_HALF, wz + ARENA_HALF
+def webots_to_sim(wx: float, wy: float) -> tuple[float, float]:
+    """Webots ENU (x_East, y_North) → sim (x_s, y_s)."""
+    return wx + ARENA_HALF, wy + ARENA_HALF
 
 
 def sim_to_webots(xs: float, ys: float) -> tuple[float, float]:
-    """Sim (x_s, y_s) → Webots (x_w, z_w)."""
+    """Sim (x_s, y_s) → Webots ENU (x_East, y_North)."""
     return xs - ARENA_HALF, ys - ARENA_HALF
 
 
@@ -210,8 +210,8 @@ def main() -> None:
         """Read Webots robot positions → sim coordinates (N, 2)."""
         out = np.empty((N_ROBOTS, 2))
         for i, node in enumerate(robot_nodes):
-            p = node.getPosition()   # [x_w, y_w, z_w]
-            out[i] = webots_to_sim(p[0], p[2])
+            p = node.getPosition()   # ENU: [x_East, y_North, z_Up]
+            out[i] = webots_to_sim(p[0], p[1])
         return out
 
     def _send_customdata(i: int, desired_heading: float, robot_alive: bool) -> None:

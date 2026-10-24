@@ -4,36 +4,40 @@
 # inline using Webots built-in primitives only.
 #
 # Physical characteristics (matching the e-puck, spec 2026-10-23):
-#   Body    : Cylinder  r = 0.037 m  h = 0.048 m  (diameter ≈ 7.4 cm)
+#   Body    : Cylinder  r = 0.037 m  h = 0.040 m  (diameter ≈ 7.4 cm)
 #   Mass    : 0.150 kg
 #   Wheels  : Cylinder  r = 0.020 m  h = 0.012 m  axle 0.052 m
 #   Max speed: 6.28 rad/s on motors → 0.1257 m/s at wheel rim;
 #              the forager controller limits linear speed to 0.1 m/s.
 #
-# Coordinate conventions (WorldInfo coordinateSystem = "NUE"):
-#   x = North = robot forward
-#   y = Up
-#   z = East  = robot right
+# Coordinate conventions (WorldInfo coordinateSystem = "ENU"):
+#   x = East  = robot forward
+#   y = North  = robot left
+#   z = Up
 #   Robot origin = body centre.
-#   With y=0.024 translation in the world: body bottom at y≈0 (floor).
-#   Wheel centres at body local y = -0.004 m → world y ≈ 0.020 m.
-#   Wheel contact with floor at world y ≈ 0.0 m.
+#   With translation z=0.024: body bottom at z=0.004 (4 mm above floor).
+#   Wheel centres at robot-local y = ±0.026, z = 0.020.
+#   Wheel bottom at z = 0.000 (floor contact). ✓
 #
 # Sensors:
 #   compass  — reports north direction; used by forager to estimate heading.
+#              In ENU, compass reading[1] = north component in robot frame.
+#              heading = atan2(reading[0], reading[1]).
 #   ps0..ps7 — infrared distance sensors (same names as the real e-puck),
-#              arranged at the eight standard positions around the body.
+#              arranged at the eight standard positions around the body in
+#              the x-y (horizontal) plane.
 #              lookupTable maps distance (m) → sensor value (0–4095).
 #              Range 0.2 m; background 0.
 #
 # Motors:
-#   "left wheel motor"  — HingeJoint axis [0,0,1] at z = -0.026 m
-#   "right wheel motor" — HingeJoint axis [0,0,1] at z = +0.026 m
+#   "left wheel motor"  — HingeJoint axis [0,1,0] at y = +0.026 m
+#   "right wheel motor" — HingeJoint axis [0,1,0] at y = -0.026 m
 #   Both set to velocity mode (position = inf) in the forager controller.
+#   Equal positive velocities → robot moves toward +x (East). ✓
 #   maxVelocity 6.28 rad/s.
 
 PROTO Forager [
-  field SFVec3f    translation  0 0.024 0
+  field SFVec3f    translation  0 0 0.024
   field SFRotation rotation     0 1 0 0
   field SFString   name         "robot"
   field SFString   controller   "forager"
@@ -53,6 +57,7 @@ PROTO Forager [
     children [
 
       # ── body ────────────────────────────────────────────────────────────
+      # Cylinder default axis = z (Up in ENU) → body stands upright. ✓
       Shape {
         appearance PBRAppearance {
           baseColor 0.15 0.45 0.85
@@ -61,15 +66,17 @@ PROTO Forager [
         }
         geometry Cylinder {
           radius 0.037
-          height 0.048
+          height 0.040
         }
       }
 
-      # ── left wheel  (z = -0.026, axis +z) ───────────────────────────────
+      # ── left wheel  (y = +0.026, axis +y, left side when facing +x) ────
+      # rotation [1,0,0,π/2] maps cylinder z-axis → y-axis (lateral). ✓
+      # Equal positive velocity → contact point moves +x → robot goes +x. ✓
       HingeJoint {
         jointParameters HingeJointParameters {
-          axis 0 0 1
-          anchor 0 -0.004 -0.026
+          axis 0 1 0
+          anchor 0 0.026 0.020
         }
         device [
           RotationalMotor {
@@ -79,7 +86,7 @@ PROTO Forager [
           }
         ]
         endPoint Solid {
-          translation 0 -0.004 -0.026
+          translation 0 0.026 0.020
           rotation 1 0 0 1.5707963267948966
           children [
             Shape {
@@ -105,11 +112,11 @@ PROTO Forager [
         }
       }
 
-      # ── right wheel (z = +0.026, axis +z) ───────────────────────────────
+      # ── right wheel (y = -0.026, axis +y, right side when facing +x) ───
       HingeJoint {
         jointParameters HingeJointParameters {
-          axis 0 0 1
-          anchor 0 -0.004 0.026
+          axis 0 1 0
+          anchor 0 -0.026 0.020
         }
         device [
           RotationalMotor {
@@ -119,7 +126,7 @@ PROTO Forager [
           }
         ]
         endPoint Solid {
-          translation 0 -0.004 0.026
+          translation 0 -0.026 0.020
           rotation 1 0 0 1.5707963267948966
           children [
             Shape {
@@ -152,16 +159,27 @@ PROTO Forager [
 
       # ── IR proximity sensors (ps0 … ps7) ─────────────────────────────────
       # Positions: on the body surface at r=0.037 m, angles measured CW from
-      # robot forward (+x) in the xz-plane.  Rotation around y by -angle_deg.
+      # robot forward (+x) in the xy-plane (horizontal plane, ENU).
+      # Rotation around z by -angle_rad (CW when viewed from +z = above).
       #
       # lookupTable: [(dist_m, value, noise_stddev), ...]
       #   dist 0 → value 4095 (very close); dist 0.2 → value 0 (out of range).
       #   Linear interpolation.
+      #
+      # Sensor positions (x = r*cos(θ_cw), y = -r*sin(θ_cw), z = 0):
+      #   ps0: 10°  → ( 0.0364, -0.0064, 0)
+      #   ps1: 45°  → ( 0.0262, -0.0262, 0)
+      #   ps2: 90°  → ( 0.0000, -0.0370, 0)
+      #   ps3: 160° → (-0.0347, -0.0127, 0)
+      #   ps4: 200° → (-0.0347,  0.0127, 0)
+      #   ps5: 270° → ( 0.0000,  0.0370, 0)
+      #   ps6: 315° → ( 0.0262,  0.0262, 0)
+      #   ps7: 350° → ( 0.0364,  0.0064, 0)
 
       # ps0: 10° CW from front (front-right)
       DistanceSensor {
-        translation 0.0364 0 0.0064
-        rotation 0 1 0 -0.17453292519943295
+        translation 0.0364 -0.0064 0
+        rotation 0 0 1 -0.17453292519943295
         name "ps0"
         lookupTable [ 0 4095 0, 0.2 0 0 ]
         type "infra-red"
@@ -170,8 +188,8 @@ PROTO Forager [
       }
       # ps1: 45° CW from front (right-front diagonal)
       DistanceSensor {
-        translation 0.0262 0 0.0262
-        rotation 0 1 0 -0.7853981633974483
+        translation 0.0262 -0.0262 0
+        rotation 0 0 1 -0.7853981633974483
         name "ps1"
         lookupTable [ 0 4095 0, 0.2 0 0 ]
         type "infra-red"
@@ -180,8 +198,8 @@ PROTO Forager [
       }
       # ps2: 90° CW from front (right)
       DistanceSensor {
-        translation 0 0 0.037
-        rotation 0 1 0 -1.5707963267948966
+        translation 0 -0.037 0
+        rotation 0 0 1 -1.5707963267948966
         name "ps2"
         lookupTable [ 0 4095 0, 0.2 0 0 ]
         type "infra-red"
@@ -190,8 +208,8 @@ PROTO Forager [
       }
       # ps3: 160° CW from front (rear-right)
       DistanceSensor {
-        translation -0.0347 0 0.0127
-        rotation 0 1 0 -2.792526803190927
+        translation -0.0347 -0.0127 0
+        rotation 0 0 1 -2.792526803190927
         name "ps3"
         lookupTable [ 0 4095 0, 0.2 0 0 ]
         type "infra-red"
@@ -200,8 +218,8 @@ PROTO Forager [
       }
       # ps4: 200° CW from front (rear-left)
       DistanceSensor {
-        translation -0.0347 0 -0.0127
-        rotation 0 1 0 2.792526803190927
+        translation -0.0347 0.0127 0
+        rotation 0 0 1 2.792526803190927
         name "ps4"
         lookupTable [ 0 4095 0, 0.2 0 0 ]
         type "infra-red"
@@ -210,8 +228,8 @@ PROTO Forager [
       }
       # ps5: 270° CW from front (left)
       DistanceSensor {
-        translation 0 0 -0.037
-        rotation 0 1 0 1.5707963267948966
+        translation 0 0.037 0
+        rotation 0 0 1 1.5707963267948966
         name "ps5"
         lookupTable [ 0 4095 0, 0.2 0 0 ]
         type "infra-red"
@@ -220,8 +238,8 @@ PROTO Forager [
       }
       # ps6: 315° CW from front (front-left diagonal)
       DistanceSensor {
-        translation 0.0262 0 -0.0262
-        rotation 0 1 0 0.7853981633974483
+        translation 0.0262 0.0262 0
+        rotation 0 0 1 0.7853981633974483
         name "ps6"
         lookupTable [ 0 4095 0, 0.2 0 0 ]
         type "infra-red"
@@ -230,8 +248,8 @@ PROTO Forager [
       }
       # ps7: 350° CW from front (front, slightly left)
       DistanceSensor {
-        translation 0.0364 0 -0.0064
-        rotation 0 1 0 0.17453292519943295
+        translation 0.0364 0.0064 0
+        rotation 0 0 1 0.17453292519943295
         name "ps7"
         lookupTable [ 0 4095 0, 0.2 0 0 ]
         type "infra-red"
@@ -242,12 +260,9 @@ PROTO Forager [
     ]  # end children
 
     # ── bounding object ──────────────────────────────────────────────────
-    # Main cylinder collision shape; wheels have their own.
-    # Height 0.040 (not 0.048) so the bottom sits at y=0.004, 4 mm above
-    # the floor.  With height=0.048 the bottom was at y=0.000 (floor level),
-    # creating a degenerate simultaneous contact with both wheel bottoms
-    # (also at y=0.000) that sent the physics solver unstable and launched
-    # robots with z<0 at >12 m/s on the first simulation step.
+    # Cylinder axis = z (Up in ENU).  Centre at z=0.024 (world).
+    # Height 0.040: bottom at z = 0.024 - 0.020 = 0.004 (4 mm above floor).
+    # Wheel bottom at z = 0.020 - 0.020 = 0.000 (floor contact). ✓
     boundingObject Cylinder {
       radius 0.037
       height 0.040

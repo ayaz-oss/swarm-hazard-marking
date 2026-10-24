@@ -17,10 +17,11 @@ Physical constants (e-puck):
   Axle length  L  = 0.052  m
   Max linear speed = 0.1 m/s  → MAX_WHEEL_SPEED = 0.1 / 0.0205 ≈ 4.878 rad/s
 
-Heading convention:
-  0 = +x direction in Webots (east in the arena, corresponds to sim +x).
-  Angles increase counter-clockwise (standard mathematical convention).
-  The compass provides a bearing; we convert it to this convention below.
+Heading convention (ENU: x=East, y=North, z=Up):
+  0 = +x direction = East; π/2 = North; angles increase CCW viewed from above (+z).
+  Compass reports north direction in robot-local frame; heading = atan2(n[0], n[1]).
+  Left motor at y=+0.026 (North side); right motor at y=-0.026 (South side).
+  v_right > v_left → turns LEFT (CCW); v_left > v_right → turns RIGHT (CW).
 
 IR proximity sensors (8, named ps0..ps7, mounted around the e-puck):
   Approximate angles from robot-forward (+x in robot frame):
@@ -142,38 +143,40 @@ def ir_avoidance(
         # If the obstacle is in the right semicircle (0°–180°): turn left.
         # If in the left semicircle (180°–360°): turn right.
         if 0.0 <= angle_deg < 180.0:
-            # Right side: reduce right wheel, boost left (turn left/away)
-            # Capped at MAX_WHEEL_SPEED so avoidance cannot completely reverse
-            # the heading-control base speed in the opposite direction.
-            delta_right -= strength * MAX_WHEEL_SPEED * 1.0
-            delta_left += strength * MAX_WHEEL_SPEED * 0.3
+            # Right side obstacle (−y side in ENU): turn LEFT (CCW around +z).
+            # Turn left = v_right > v_left → boost right, reduce left.
+            delta_right += strength * MAX_WHEEL_SPEED * 1.0
+            delta_left -= strength * MAX_WHEEL_SPEED * 0.3
         else:
-            # Left side: reduce left wheel, boost right (turn right/away)
-            delta_left -= strength * MAX_WHEEL_SPEED * 1.0
-            delta_right += strength * MAX_WHEEL_SPEED * 0.3
+            # Left side obstacle (+y side in ENU): turn RIGHT (CW around +z).
+            # Turn right = v_left > v_right → boost left, reduce right.
+            delta_left += strength * MAX_WHEEL_SPEED * 1.0
+            delta_right -= strength * MAX_WHEEL_SPEED * 0.3
     return delta_left, delta_right
 
 
 def compass_to_heading(north_vec: list[float]) -> float:
-    """Convert Webots compass reading to heading in radians (Webots convention).
+    """Convert Webots compass reading to heading in radians (ENU convention).
 
-    The Webots Compass sensor returns a unit vector pointing toward 'north'.
-    With the default WorldInfo coordinateSystem "NUE":
-      north = +x  → reading ≈ [1, 0, 0]
-    We interpret heading as the angle of the robot's forward (+x robot-axis)
-    relative to world +x, measured CCW (looking down from +y).
+    The Webots Compass sensor returns a unit vector pointing toward 'north'
+    in the sensor's LOCAL frame.
 
-    The compass reads the direction OF north in the sensor's LOCAL frame.
-    If the robot faces +x (heading=0) the compass reads [1, 0, 0] (approx).
-    If the robot faces +z (heading = -π/2 in our CCW convention) the compass
-    forward (sensor x-axis) points to +z, so north (+x_world) appears at
-    sensor -z direction → reading [-0, 0, 1]? This depends on sensor mounting.
+    With coordinateSystem "ENU": world north = +y direction.
+    The robot faces +x (East) when heading = 0.
 
-    Webots compass for e-puck (facing default +x):
-        reading = [cos(heading), 0, -sin(heading)]  (approximately)
-    so heading = atan2(-reading[2], reading[0]).
+    Compass reading in robot local frame when robot has heading θ:
+        reading[0] = sin(θ)   (north component along robot +x)
+        reading[1] = cos(θ)   (north component along robot +y)
+        reading[2] ≈ 0        (vertical, ignored)
+
+    So heading = atan2(reading[0], reading[1]).
+
+    Verification:
+        heading=0 (facing East): reading≈[0,1,0] → atan2(0,1)=0 ✓
+        heading=π/2 (facing North): reading≈[1,0,0] → atan2(1,0)=π/2 ✓
+        heading=π (facing West): reading≈[0,-1,0] → atan2(0,-1)=π ✓
     """
-    return math.atan2(-north_vec[2], north_vec[0])
+    return math.atan2(north_vec[0], north_vec[1])
 
 
 # ── controller entry point ────────────────────────────────────────────────────
