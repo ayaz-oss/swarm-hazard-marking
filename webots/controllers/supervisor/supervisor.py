@@ -104,13 +104,15 @@ def unit_vec(theta: np.ndarray) -> np.ndarray:
 
 
 # ── CSV columns (match existing results/*.csv) ────────────────────────────────
+PUSH_STEPS = 0  # observation: robot-steps with a non-zero avoidance push
+
 CSV_COLS = [
     "experiment", "cell", "controller", "seed", "config_hash",
     "delivered", "picked_up", "items_lost", "carrying", "robots_lost",
     "first_loss_step", "steps", "false_sightings", "alerts_sent",
     "auc_final", "auc_mean", "auc_series", "hazard_area",
     "repellent_in_hazard", "trip_steps_mean", "search_steps_mean",
-    "nest_steps", "wall_s",
+    "nest_steps", "wall_s", "push_steps", "final_pos_sum",
     # Webots-specific extras
     "simulator",
 ]
@@ -363,6 +365,8 @@ def main() -> None:
         "search_steps_mean": (float(search_steps_total) / float(search_count)
                               if search_count > 0 else float("nan")),
         "wall_s": wall_s,
+        "push_steps": PUSH_STEPS,
+        "final_pos_sum": round(float(np.abs(pos).sum()), 6),
     }
     if cfg.controller == "C2":
         row.update(
@@ -443,6 +447,8 @@ def _choose_headings(
         alive=alive, alert_positions=None,
     )
 
+    global PUSH_STEPS
+    PUSH_STEPS += int((alive & (np.abs(push).sum(axis=1) > 1e-12)).sum())
     steer = unit_vec(heading) + push
     heading[:] = np.where(alive, np.arctan2(steer[:, 1], steer[:, 0]), heading)
 
