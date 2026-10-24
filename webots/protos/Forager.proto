@@ -76,7 +76,7 @@ PROTO Forager [
       HingeJoint {
         jointParameters HingeJointParameters {
           axis 0 1 0
-          anchor 0 0.026 0.020
+          anchor 0 0.026 -0.004
         }
         device [
           RotationalMotor {
@@ -86,7 +86,7 @@ PROTO Forager [
           }
         ]
         endPoint Solid {
-          translation 0 0.026 0.020
+          translation 0 0.026 -0.004
           rotation 1 0 0 1.5707963267948966
           children [
             Shape {
@@ -116,7 +116,7 @@ PROTO Forager [
       HingeJoint {
         jointParameters HingeJointParameters {
           axis 0 1 0
-          anchor 0 -0.026 0.020
+          anchor 0 -0.026 -0.004
         }
         device [
           RotationalMotor {
@@ -126,7 +126,7 @@ PROTO Forager [
           }
         ]
         endPoint Solid {
-          translation 0 -0.026 0.020
+          translation 0 -0.026 -0.004
           rotation 1 0 0 1.5707963267948966
           children [
             Shape {
