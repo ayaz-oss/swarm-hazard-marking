@@ -330,3 +330,41 @@ alerts fired, and `alert_duration` = 3000, the best duration at `alert_limit` 1 
 pre-registered rule (median delivered 137.5). This choice was made after seeing tune_c7f and E10 and
 is disclosed as such. Analysis: identical to E10 (25 tests, one Holm family), plus the descriptive
 `alerts_sent`.
+
+## Webots physics replication (added 2026-10-24, before any W1 data exist; `docs/superpowers/specs/2026-10-23-physics-replication.md`)
+
+Nothing above this section is changed. **Purpose:** check that the main effect survives real robot
+bodies, differential-drive motion and collisions (limitations #1 and #2).
+
+**Simulator.** Webots R2025a; 20 differential-drive robots (7.4 cm body, 0.1 m/s), physical
+collisions with walls, each other and wrecks (a wreck is a stopped robot). Virtual, via a
+supervisor: hazard and lethality, items and patches, nest direction, wreck sensing within 0.5 m,
+the shared repellent field (site-fidelity tuned parameters), site fidelity. The oracle C4 cannot be
+blocked physically, so it steers along the hazard edge (looks 0.15 m ahead) and heads straight out
+if pushed inside; it can still die. Random streams are seeded per (controller, seed) but do not
+reproduce the 2D runs, and physics is not paired across controllers once paths diverge.
+
+**Calibration (descriptive, already run, no hazard):** C0, 5 seeds, 3,000 steps: 16–23 items
+delivered against 19–37 in the 2D model (about 25% slower), trip times 261–272 vs 247–257 steps.
+
+**Experiment W1:** controllers C0, C1, C2, C4; site-fidelity baseline (one 1 m hazard next to a
+patch, lethality 0.02); 10,000 steps; 100 seeds per controller (400 runs); seeds shared across
+controllers (same layout and start), so comparisons are paired by seed.
+
+**Hypotheses (replication of H1F and H2F in physics):**
+
+| ID | Claim | Test |
+|---|---|---|
+| H1W | C2 delivers more items than C0 | one-sided paired Wilcoxon (Pratt), C2 − C0, delivered |
+| H2W | C2 loses fewer robots than C1 | one-sided paired Wilcoxon (Pratt), C1 − C2, robots_lost |
+
+Holm correction across H1W and H2W at α = 0.05; effect size A12 with seed-bootstrap 95% CIs
+(10,000 resamples, generator seed 20261016), as in the Statistics section.
+
+**Descriptive only:** medians with CIs of delivered and robots_lost for all four controllers;
+C4 vs C2; C2's localisation AUC and repellent_in_hazard; push_steps; trip and search times; and a
+side-by-side comparison with E1F (unpaired across simulators).
+
+**Disclosure.** H1W and H2W were already supported in the 2D model (H1F, H2F), so this is a
+replication. Effects may shrink with physics (fewer deaths per run in the smoke runs: 0–2); a null
+result will be reported as such.
