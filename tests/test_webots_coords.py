@@ -228,3 +228,31 @@ class TestIrAvoidance(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_oracle_steer_never_points_into_hazard():
+    import importlib.util, sys, types
+    from pathlib import Path
+    import numpy as np
+    from swarmhazard.config import Config
+    from swarmhazard.world import make_world, in_hazard
+    # import oracle_steer without the Webots controller library
+    sys.modules.setdefault("controller", types.SimpleNamespace(Supervisor=object))
+    p = Path(__file__).resolve().parents[1] / "webots/controllers/supervisor/supervisor.py"
+    spec = importlib.util.spec_from_file_location("wb_supervisor", p)
+    mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+    cfg = Config()
+    world = make_world(cfg, np.random.default_rng(0))
+    cx, cy, r = cfg.hazards[0]
+    # robots just outside the hazard, all heading straight at its centre
+    ang = np.linspace(0, 2 * np.pi, 12, endpoint=False)
+    pos = np.column_stack((cx + (r + 0.1) * np.cos(ang), cy + (r + 0.1) * np.sin(ang)))
+    heading = ang + np.pi
+    alive = np.ones(12, dtype=bool)
+    mod.oracle_steer(world, pos, heading, alive)
+    ahead = pos + 0.05 * np.column_stack((np.cos(heading), np.sin(heading)))
+    assert not in_hazard(world, ahead).any()
+    # a robot inside heads outward
+    pos_in = np.array([[cx + 0.5, cy]]); h = np.array([np.pi])
+    mod.oracle_steer(world, pos_in, h, np.array([True]))
+    assert abs(h[0]) < 1e-9

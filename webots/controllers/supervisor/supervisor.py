@@ -57,6 +57,8 @@ _ROOT = os.path.dirname(_WEBOTS_DIR)                    # worktree root
 sys.path.insert(0, os.path.join(_ROOT, "src"))
 
 from controller import Supervisor  # noqa: E402  (Webots controller lib)
+from swarmhazard.metrics import field_auc, hazard_mask, repellent_in_hazard_share  # noqa: E402
+from swarmhazard.world import in_hazard  # noqa: E402
 
 from swarmhazard.config import Config, config_hash, load_config  # noqa: E402
 from swarmhazard.controllers import avoidance  # noqa: E402
@@ -172,6 +174,8 @@ def main() -> None:
     swarm = make_swarm(cfg, layout_rng)
     field = RepellentField(cfg.arena_size, cfg.grid_cell)
     seen = np.zeros((N_ROBOTS, N_ROBOTS), dtype=bool)
+    hmask = hazard_mask(world, field)
+    auc_series: list[float] = []
     nest = np.asarray(cfg.nest_center, dtype=float)
 
     # Per-robot state tracked by supervisor
@@ -242,6 +246,8 @@ def main() -> None:
             cfg, pos, heading, alive, state, last_pickup, world, field, nest,
             seen, cfg.sense_range,
         )
+        if cfg.controller == "C4":
+            oracle_steer(world, pos, heading, alive)
 
         # 5. Observation: nest proximity steps (before pickup/delivery)
         dist_to_nest = norm(pos - nest)
@@ -312,6 +318,8 @@ def main() -> None:
         # 10. Field decay
         if cfg.controller in ("C2",):
             field.decay(cfg.decay)
+            if sim_step % cfg.metric_every == 0:
+                auc_series.append(field_auc(field.grid, hmask))
 
         # 11. Write customData to each robot
         dead_pos = pos[~alive]
@@ -356,6 +364,13 @@ def main() -> None:
                               if search_count > 0 else float("nan")),
         "wall_s": wall_s,
     }
+    if cfg.controller == "C2":
+        row.update(
+            auc_final=auc_series[-1] if auc_series else float("nan"),
+            auc_mean=float(np.mean(auc_series)) if auc_series else float("nan"),
+            auc_series=";".join(f"{a:.4f}" for a in auc_series),
+            repellent_in_hazard=repellent_in_hazard_share(field.grid, hmask, True),
+        )
 
     out_file = Path(out_path)
     write_header = not out_file.exists() or out_file.stat().st_size == 0
@@ -434,6 +449,29 @@ def _choose_headings(
 
 def unit_vec(theta: np.ndarray) -> np.ndarray:
     return np.column_stack((np.cos(theta), np.sin(theta)))
+
+
+def oracle_steer(world, pos: np.ndarray, heading: np.ndarray, alive: np.ndarray,
+                 lookahead: float = 0.15) -> None:
+    """C4 (oracle): never steer into a hazard. Physical robots cannot be blocked the way the
+    2D model blocks moves, so the oracle steers instead: if the point `lookahead` metres ahead is
+    inside a hazard, follow the hazard edge (the tangent closer to the desired heading); if the
+    robot is already inside (pushed by a collision), head straight out."""
+    if len(world.hazard_r) == 0:
+        return
+    for i in np.flatnonzero(alive):
+        ahead = pos[i] + lookahead * np.array([np.cos(heading[i]), np.sin(heading[i])])
+        d = norm(world.hazard_xy - pos[i][None, :])
+        k = int(np.argmin(d - world.hazard_r))
+        centre, radius = world.hazard_xy[k], world.hazard_r[k]
+        out = pos[i] - centre
+        if np.linalg.norm(out) < radius:                      # inside: leave radially
+            heading[i] = np.arctan2(out[1], out[0])
+        elif in_hazard(world, ahead[None, :])[0]:              # about to enter: slide along edge
+            t1 = np.array([-out[1], out[0]])
+            want = np.array([np.cos(heading[i]), np.sin(heading[i])])
+            t = t1 if t1 @ want >= 0 else -t1
+            heading[i] = np.arctan2(t[1], t[0])
 
 
 if __name__ == "__main__":
