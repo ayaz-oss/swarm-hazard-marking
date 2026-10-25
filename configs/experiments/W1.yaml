@@ -1,0 +1,20 @@
+# W1: Webots physics-based replication of the site-fidelity experiment (E1F).
+# Controllers C0, C1, C2, C4; 100 seeds each = 400 runs.
+# Same tuned parameters as E1F (search_start: last_pickup, tuned_params_fidelity.yaml).
+#
+# Pre-registration status: pending user approval (see docs/hypotheses.md).
+# Run this experiment only after approval; the smoke run (W1 with n_steps=2000)
+# can be run at any time for calibration.
+
+name: W1
+base: configs/baseline.yaml
+controllers: [C0, C1, C2, C4]
+seeds: 100
+overrides_file: configs/tuned_params_fidelity.yaml
+n_steps: 10000
+
+# Webots-specific: runner script uses these to build command lines.
+webots:
+  n_parallel: 2        # parallel Webots instances
+  result_file: results/W1.csv
+  world_template: webots/worlds/foraging.wbt

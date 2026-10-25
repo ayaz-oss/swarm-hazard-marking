@@ -1,0 +1,279 @@
+#VRML_SIM R2025a utf8
+# Forager.proto — minimal differential-drive robot for the swarm-hazard
+# Webots physics replication.  No external downloads; all geometry is defined
+# inline using Webots built-in primitives only.
+#
+# Physical characteristics (matching the e-puck, spec 2026-10-23):
+#   Body    : Cylinder  r = 0.037 m  h = 0.040 m  (diameter ≈ 7.4 cm)
+#   Mass    : 0.150 kg
+#   Wheels  : Cylinder  r = 0.020 m  h = 0.012 m  axle 0.052 m
+#   Max speed: 6.28 rad/s on motors → 0.1257 m/s at wheel rim;
+#              the forager controller limits linear speed to 0.1 m/s.
+#
+# Coordinate conventions (WorldInfo coordinateSystem = "ENU"):
+#   x = East  = robot forward
+#   y = North  = robot left
+#   z = Up
+#   Robot origin = body centre.
+#   With translation z=0.024: body bottom at z=0.004 (4 mm above floor).
+#   Wheel centres at robot-local y = ±0.026, z = 0.020.
+#   Wheel bottom at z = 0.000 (floor contact). ✓
+#
+# Sensors:
+#   compass  — reports north direction; used by forager to estimate heading.
+#              In ENU, compass reading[1] = north component in robot frame.
+#              heading = atan2(reading[0], reading[1]).
+#   ps0..ps7 — infrared distance sensors (same names as the real e-puck),
+#              arranged at the eight standard positions around the body in
+#              the x-y (horizontal) plane.
+#              lookupTable maps distance (m) → sensor value (0–4095).
+#              Range 0.2 m; background 0.
+#
+# Motors:
+#   "left wheel motor"  — HingeJoint axis [0,1,0] at y = +0.026 m
+#   "right wheel motor" — HingeJoint axis [0,1,0] at y = -0.026 m
+#   Both set to velocity mode (position = inf) in the forager controller.
+#   Equal positive velocities → robot moves toward +x (East). ✓
+#   maxVelocity 6.28 rad/s.
+
+PROTO Forager [
+  field SFVec3f    translation  0 0 0.024
+  field SFRotation rotation     0 1 0 0
+  field SFString   name         "robot"
+  field SFString   controller   "forager"
+  field MFString   controllerArgs []
+  field SFString   customData   ""
+  field SFBool     synchronization TRUE
+]
+{
+  Robot {
+    translation IS translation
+    rotation    IS rotation
+    name        IS name
+    controller  IS controller
+    controllerArgs IS controllerArgs
+    customData  IS customData
+    synchronization IS synchronization
+    children [
+
+      # ── body ────────────────────────────────────────────────────────────
+      # Cylinder default axis = z (Up in ENU) → body stands upright. ✓
+      Shape {
+        appearance PBRAppearance {
+          baseColor 0.15 0.45 0.85
+          roughness 0.6
+          metalness 0.0
+        }
+        geometry Cylinder {
+          radius 0.037
+          height 0.040
+        }
+      }
+
+      # ── left wheel  (y = +0.026, axis +y, left side when facing +x) ────
+      # rotation [1,0,0,π/2] maps cylinder z-axis → y-axis (lateral). ✓
+      # Equal positive velocity → contact point moves +x → robot goes +x. ✓
+      HingeJoint {
+        jointParameters HingeJointParameters {
+          axis 0 1 0
+          anchor 0 0.026 -0.004
+        }
+        device [
+          RotationalMotor {
+            name "left wheel motor"
+            maxVelocity 6.28
+            maxTorque 1.0
+          }
+        ]
+        endPoint Solid {
+          translation 0 0.026 -0.004
+          rotation 1 0 0 1.5707963267948966
+          children [
+            Shape {
+              appearance PBRAppearance {
+                baseColor 0.15 0.15 0.15
+                roughness 1.0
+              }
+              geometry Cylinder {
+                radius 0.020
+                height 0.012
+              }
+            }
+          ]
+          name "left_wheel"
+          boundingObject Cylinder {
+            radius 0.020
+            height 0.012
+          }
+          physics Physics {
+            density -1
+            mass 0.010
+          }
+        }
+      }
+
+      # ── right wheel (y = -0.026, axis +y, right side when facing +x) ───
+      HingeJoint {
+        jointParameters HingeJointParameters {
+          axis 0 1 0
+          anchor 0 -0.026 -0.004
+        }
+        device [
+          RotationalMotor {
+            name "right wheel motor"
+            maxVelocity 6.28
+            maxTorque 1.0
+          }
+        ]
+        endPoint Solid {
+          translation 0 -0.026 -0.004
+          rotation 1 0 0 1.5707963267948966
+          children [
+            Shape {
+              appearance PBRAppearance {
+                baseColor 0.15 0.15 0.15
+                roughness 1.0
+              }
+              geometry Cylinder {
+                radius 0.020
+                height 0.012
+              }
+            }
+          ]
+          name "right_wheel"
+          boundingObject Cylinder {
+            radius 0.020
+            height 0.012
+          }
+          physics Physics {
+            density -1
+            mass 0.010
+          }
+        }
+      }
+
+      # ── compass ──────────────────────────────────────────────────────────
+      Compass {
+        name "compass"
+      }
+
+      # ── IR proximity sensors (ps0 … ps7) ─────────────────────────────────
+      # Positions: on the body surface at r=0.037 m, angles measured CW from
+      # robot forward (+x) in the xy-plane (horizontal plane, ENU).
+      # Rotation around z by -angle_rad (CW when viewed from +z = above).
+      #
+      # lookupTable: [(dist_m, value, noise_stddev), ...]
+      #   dist 0 → value 4095 (very close); dist 0.2 → value 0 (out of range).
+      #   Linear interpolation.
+      #
+      # Sensor positions (x = r*cos(θ_cw), y = -r*sin(θ_cw), z = 0):
+      #   ps0: 10°  → ( 0.0364, -0.0064, 0)
+      #   ps1: 45°  → ( 0.0262, -0.0262, 0)
+      #   ps2: 90°  → ( 0.0000, -0.0370, 0)
+      #   ps3: 160° → (-0.0347, -0.0127, 0)
+      #   ps4: 200° → (-0.0347,  0.0127, 0)
+      #   ps5: 270° → ( 0.0000,  0.0370, 0)
+      #   ps6: 315° → ( 0.0262,  0.0262, 0)
+      #   ps7: 350° → ( 0.0364,  0.0064, 0)
+
+      # ps0: 10° CW from front (front-right)
+      DistanceSensor {
+        translation 0.0364 -0.0064 0
+        rotation 0 0 1 -0.17453292519943295
+        name "ps0"
+        lookupTable [ 0 4095 0, 0.2 0 0 ]
+        type "infra-red"
+        numberOfRays 1
+        aperture 0.1
+      }
+      # ps1: 45° CW from front (right-front diagonal)
+      DistanceSensor {
+        translation 0.0262 -0.0262 0
+        rotation 0 0 1 -0.7853981633974483
+        name "ps1"
+        lookupTable [ 0 4095 0, 0.2 0 0 ]
+        type "infra-red"
+        numberOfRays 1
+        aperture 0.1
+      }
+      # ps2: 90° CW from front (right)
+      DistanceSensor {
+        translation 0 -0.037 0
+        rotation 0 0 1 -1.5707963267948966
+        name "ps2"
+        lookupTable [ 0 4095 0, 0.2 0 0 ]
+        type "infra-red"
+        numberOfRays 1
+        aperture 0.1
+      }
+      # ps3: 160° CW from front (rear-right)
+      DistanceSensor {
+        translation -0.0347 -0.0127 0
+        rotation 0 0 1 -2.792526803190927
+        name "ps3"
+        lookupTable [ 0 4095 0, 0.2 0 0 ]
+        type "infra-red"
+        numberOfRays 1
+        aperture 0.1
+      }
+      # ps4: 200° CW from front (rear-left)
+      DistanceSensor {
+        translation -0.0347 0.0127 0
+        rotation 0 0 1 2.792526803190927
+        name "ps4"
+        lookupTable [ 0 4095 0, 0.2 0 0 ]
+        type "infra-red"
+        numberOfRays 1
+        aperture 0.1
+      }
+      # ps5: 270° CW from front (left)
+      DistanceSensor {
+        translation 0 0.037 0
+        rotation 0 0 1 1.5707963267948966
+        name "ps5"
+        lookupTable [ 0 4095 0, 0.2 0 0 ]
+        type "infra-red"
+        numberOfRays 1
+        aperture 0.1
+      }
+      # ps6: 315° CW from front (front-left diagonal)
+      DistanceSensor {
+        translation 0.0262 0.0262 0
+        rotation 0 0 1 0.7853981633974483
+        name "ps6"
+        lookupTable [ 0 4095 0, 0.2 0 0 ]
+        type "infra-red"
+        numberOfRays 1
+        aperture 0.1
+      }
+      # ps7: 350° CW from front (front, slightly left)
+      DistanceSensor {
+        translation 0.0364 0.0064 0
+        rotation 0 0 1 0.17453292519943295
+        name "ps7"
+        lookupTable [ 0 4095 0, 0.2 0 0 ]
+        type "infra-red"
+        numberOfRays 1
+        aperture 0.1
+      }
+
+    ]  # end children
+
+    # ── bounding object ──────────────────────────────────────────────────
+    # Cylinder axis = z (Up in ENU).  Centre at z=0.024 (world).
+    # Height 0.040: bottom at z = 0.024 - 0.020 = 0.004 (4 mm above floor).
+    # Wheel bottom at z = 0.020 - 0.020 = 0.000 (floor contact). ✓
+    boundingObject Cylinder {
+      radius 0.037
+      height 0.040
+    }
+
+    # ── physics ──────────────────────────────────────────────────────────
+    physics Physics {
+      density -1
+      mass 0.150
+      centerOfMass [ 0 0 0 ]
+    }
+
+  }  # end Robot
+}  # end PROTO
