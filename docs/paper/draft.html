@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Lost Teammates as Hazard Sensors (draft)</title>
+<title>Lost Teammates as Hazard Sensors</title>
 <style>
   @page { size: A4; margin: 22mm 20mm 22mm 20mm; }
   body { font-family: "Times New Roman", Georgia, serif; font-size: 11pt; line-height: 1.42; color: #111; background: #fff; max-width: 170mm; margin: 0 auto; }
@@ -38,7 +38,7 @@
 <h1>Lost Teammates as Hazard Sensors:<br>Stigmergic Marking of Robot Failures in a Foraging Swarm</h1>
 <p class="authors">Ayaz Nasyrov</p>
 <p class="affil">Foundation Year, University College London (UCL), London, United Kingdom</p>
-<p class="draft">WORKING DRAFT, 23 October 2026. Not peer reviewed. Please do not circulate or cite.</p>
+<p class="draft">Preprint, 25 October 2026. Not peer reviewed.</p>
 
 <div class="abstract"><p><b>Abstract.</b> Robots that explore unmapped environments are often lost to hazards their sensors cannot detect. Swarm robotics usually treats such losses as damage to be tolerated. We ask whether a decentralised foraging swarm with only local sensing can instead use the failures of its teammates as information about where the hazard is. In our controller, a robot that comes across the wreck of a teammate deposits a decaying repellent mark in a shared field, analogous to the "no entry" pheromone of Pharaoh ants, and robots steer down its gradient. The swarm uses site fidelity as its default search rule: after each delivery, a robot returns to where it last found food. We compare the marking controller with controllers that ignore wrecks, avoid only wrecks in view, add a risk trade-off, keep per-robot maps, use shared sighting records, or broadcast risk-limit alerts, in a simulated 20-robot central-place foraging task. Four hypotheses and their analysis were pre-registered, and runs are paired by random seed. Under site fidelity, marking delivered more items than ignoring the hazard (median paired difference +1 item of about 139; A12 = 0.556, Holm <i>p</i> = 9.2×10<sup>−4</sup>) and lost fewer robots than avoiding visible wrecks alone (A12 = 0.664, Holm <i>p</i> = 1.0×10<sup>−7</sup>). In the random-failure control the bound on marking's item cost was met (lower CI bound of A12 = 0.396, above the 0.36 margin), with a median paired difference of −5 items [−10, 1]. Risk weighting showed no detectable benefit. The nest-restart model (robustness) reproduced the same ordering. Risk-limit alerts that fired lost more robots than plain avoidance in both hazard conditions. The information medium (shared field, per-robot maps, sighting records) made no detectable difference. The effect held under two simultaneous hazards. In a pre-registered physics replication in Webots, with real robot bodies and collisions, marking again lost fewer robots than avoiding visible wrecks (A12 = 0.61, Holm <i>p</i> = 8×10<sup>−6</sup>), but its small gain in items delivered was not detectable. All code, configurations and raw results are released. Total: 38,600 runs.</p></div>
 <p class="keywords"><b>Keywords:</b> swarm robotics; stigmergy; foraging; fault tolerance; hazard localisation; virtual pheromones; pre-registration</p>
