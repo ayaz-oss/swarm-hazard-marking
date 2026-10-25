@@ -21,7 +21,7 @@ Robots exploring unknown environments are often lost to hazards their sensors ca
 21 pages, 10 figures. Pre-registered study. Code, data and pre-registration: https://github.com/ayaz-oss/swarm-hazard-marking, archived at https://doi.org/10.5281/zenodo.23637280
 
 **Primary category:** cs.RO (Robotics)
-**Cross-list:** cs.MA (Multiagent Systems), cs.NE (Neural and Evolutionary Computing) — optional
+**Cross-list:** cs.MA (Multiagent Systems)
 **Licence:** CC BY 4.0
 **MSC / ACM class:** leave empty
 
