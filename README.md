@@ -7,7 +7,7 @@ pheromone of Pharaoh ants), and the other robots steer away from strong marks.
 
 Author: Ayaz Nasyrov (Foundation Year, University College London).
 Paper (working draft): [`docs/paper/draft.pdf`](docs/paper/draft.pdf).
-Archived release: [doi.org/10.5281/zenodo.23591454](https://doi.org/10.5281/zenodo.23591454).
+Archived release: [doi.org/10.5281/zenodo.23637280](https://doi.org/10.5281/zenodo.23637280) (v1.1; v1.0-preprint: 10.5281/zenodo.23591454).
 
 ## What is here
 
