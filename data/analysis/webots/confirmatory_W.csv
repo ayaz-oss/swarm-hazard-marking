@@ -1,0 +1,3 @@
+n,median_x,median_y,median_diff,median_diff_lo,median_diff_hi,a12,a12_lo,a12_hi,hypothesis,metric,x,y,p,p_holm,supported
+100,55.5,55.0,0.0,0.0,0.0,0.48555,0.45015,0.51905125,H1W,delivered,C2,C0,0.734865908967997,0.734865908967997,False
+100,2.0,1.0,0.0,0.0,0.0,0.6084,0.56579875,0.6537,H2W,robots_lost,C1,C2,3.8098205292252237e-06,7.619641058450447e-06,True

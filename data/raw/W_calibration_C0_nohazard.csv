@@ -1,0 +1,6 @@
+experiment,cell,controller,seed,config_hash,delivered,picked_up,items_lost,carrying,robots_lost,first_loss_step,steps,false_sightings,alerts_sent,auc_final,auc_mean,auc_series,hazard_area,repellent_in_hazard,trip_steps_mean,search_steps_mean,nest_steps,wall_s,simulator
+W1,0,C0,0,7d9c55c571c6,16,18,0,2,0,-1,3000,0,0,nan,nan,,3.141592653589793,nan,271.625,656.5555555555555,14439,77.465,webots
+W1,0,C0,2,7d9c55c571c6,23,26,0,3,0,-1,3000,0,0,nan,nan,,3.141592653589793,nan,265.7826086956522,518.6153846153846,13101,77.326,webots
+W1,0,C0,3,7d9c55c571c6,21,25,0,4,0,-1,3000,0,0,nan,nan,,3.141592653589793,nan,271.57142857142856,772.08,16127,80.635,webots
+W1,0,C0,1,7d9c55c571c6,20,24,0,4,0,-1,3000,0,0,nan,nan,,3.141592653589793,nan,260.85,677.5,12476,80.861,webots
+W1,0,C0,4,7d9c55c571c6,23,25,0,2,0,-1,3000,0,0,nan,nan,,3.141592653589793,nan,265.1304347826087,606.72,21176,61.975,webots
